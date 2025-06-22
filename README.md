@@ -44,6 +44,10 @@ Minifly includes comprehensive LiteFS support:
 - **Cluster Management**: Create multi-node SQLite clusters locally
 - **Compatible with Fly.io**: Uses the same LiteFS configuration format
 
+## Legal Notice
+
+**Minifly is not affiliated with, endorsed by, or sponsored by Fly.io.** This is an independent project created for local development purposes. Fly.io is a trademark of Fly.io, Inc.
+
 ## Architecture
 
 Minifly consists of several components:

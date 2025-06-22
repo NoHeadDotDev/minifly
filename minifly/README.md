@@ -211,6 +211,10 @@ destination = "/litefs"
 
 Contributions are welcome! Please see our [Contributing Guide](https://github.com/NoHeadDotDev/minifly/blob/main/CONTRIBUTING.md) for details.
 
+## ⚖️ Legal Notice
+
+**Minifly is not affiliated with, endorsed by, or sponsored by Fly.io.** This is an independent project created for local development purposes. Fly.io is a trademark of Fly.io, Inc.
+
 ## 📄 License
 
 Licensed under the MIT License. See [LICENSE](https://github.com/NoHeadDotDev/minifly/blob/main/LICENSE) for details.

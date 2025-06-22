@@ -1,0 +1,33 @@
+NOTICE
+======
+
+Minifly - Local Fly.io Development Simulator
+Copyright (c) 2024 Minifly Contributors
+
+This software is licensed under the MIT License.
+
+IMPORTANT LEGAL NOTICE:
+----------------------
+
+1. This project is NOT affiliated with, endorsed by, or sponsored by Fly.io, Inc.
+
+2. "Fly.io" and "Fly" are trademarks or registered trademarks of Fly.io, Inc.
+
+3. This project is an independent, open-source tool created to help developers
+   simulate Fly.io's platform locally for development and testing purposes.
+
+4. The use of Fly.io's API structure and configuration formats is intended for
+   compatibility and local development purposes only.
+
+5. This project does not grant any rights to use Fly.io's trademarks, logos,
+   or other intellectual property.
+
+PURPOSE:
+--------
+Minifly is designed to provide developers with a local development environment
+that simulates the behavior of the Fly.io platform, allowing them to test and
+debug applications before deploying to the actual Fly.io service.
+
+For the official Fly.io platform, please visit: https://fly.io
+
+For questions about this project, please visit: https://github.com/NoHeadDotDev/minifly
