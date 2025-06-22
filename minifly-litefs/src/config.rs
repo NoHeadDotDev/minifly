@@ -1,6 +1,15 @@
+//! LiteFS configuration management for Minifly.
+//!
+//! This module provides types and functions for managing LiteFS configurations,
+//! including automatic adaptation of production configurations for local development.
+
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
+/// Main LiteFS configuration structure.
+/// 
+/// This represents the complete LiteFS configuration that can be loaded from
+/// a `litefs.yml` file. It supports both production and development configurations.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LiteFSConfig {
     // Mount configuration
@@ -189,5 +198,87 @@ impl LiteFSConfig {
     
     pub fn from_yaml(yaml: &str) -> Result<Self, serde_yaml::Error> {
         serde_yaml::from_str(yaml)
+    }
+    
+    /// Creates a local development configuration from a production litefs.yml.
+    /// 
+    /// This function automatically adapts production LiteFS configurations for local
+    /// development by:
+    /// 
+    /// - Converting Consul lease to static lease
+    /// - Adjusting file paths to local directories
+    /// - Enabling debug mode and allow_other for FUSE
+    /// - Setting up static primary configuration
+    /// - Removing Consul-specific settings
+    /// 
+    /// # Arguments
+    /// 
+    /// * `content` - The raw YAML content of the production litefs.yml
+    /// * `machine_id` - Unique machine identifier for this instance
+    /// * `app_name` - Name of the application
+    /// 
+    /// # Returns
+    /// 
+    /// A `LiteFSConfig` adapted for local development.
+    /// 
+    /// # Example
+    /// 
+    /// ```rust
+    /// use minifly_litefs::config::LiteFSConfig;
+    /// 
+    /// let production_yaml = r#"
+    /// fuse:
+    ///   dir: "/litefs"
+    /// data:
+    ///   dir: "/var/lib/litefs"
+    /// lease:
+    ///   type: "consul"
+    /// "#;
+    /// 
+    /// let config = LiteFSConfig::from_production_config(
+    ///     production_yaml,
+    ///     "machine-123",
+    ///     "myapp"
+    /// ).unwrap();
+    /// 
+    /// assert_eq!(config.lease.lease_type, "static");
+    /// ```
+    pub fn from_production_config(content: &str, machine_id: &str, app_name: &str) -> Result<Self, anyhow::Error> {
+        let mut config: LiteFSConfig = serde_yaml::from_str(content)?;
+        
+        // Override lease configuration for local development
+        if config.lease.lease_type == "consul" {
+            // Use static lease locally instead of consul
+            config.lease.lease_type = "static".to_string();
+            config.lease.candidate = Some(true);
+            config.lease.promote = Some(true);
+            config.lease.advertise_url = Some(format!("http://{}:20202", machine_id));
+        }
+        
+        // Adjust paths to local environment
+        let base_path = PathBuf::from(format!("./minifly-data/{}/litefs/{}", app_name, machine_id));
+        config.fuse.dir = base_path.join("mount");
+        config.data.dir = base_path.join("data");
+        
+        // Enable debug mode for local development
+        config.fuse.debug = true;
+        config.fuse.allow_other = true;
+        
+        // Update log level
+        if let Some(ref mut log) = config.log {
+            log.level = "debug".to_string();
+        }
+        
+        // Set static configuration for local primary
+        config.static_config = Some(StaticConfig {
+            primary: true,
+            hostname: machine_id.to_string(),
+            advertise_url: format!("http://{}:20202", machine_id),
+        });
+        
+        // Clear consul config as it's not used locally
+        config.consul = None;
+        
+        Ok(config)
     }
 }

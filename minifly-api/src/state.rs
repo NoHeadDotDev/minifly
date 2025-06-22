@@ -3,6 +3,7 @@ use crate::docker::DockerClient;
 use anyhow::Result;
 use minifly_core::models::{App, Machine, Lease};
 use minifly_litefs::manager::LiteFSManager;
+use minifly_network::InternalDnsResolver;
 use sqlx::sqlite::{SqlitePool, SqlitePoolOptions};
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
@@ -15,6 +16,7 @@ pub struct AppState {
     pub db: SqlitePool,
     pub docker: DockerClient,
     pub litefs: Arc<LiteFSManager>,
+    pub dns_resolver: Arc<InternalDnsResolver>,
     pub leases: Arc<RwLock<HashMap<String, Lease>>>,
     pub machines: Arc<RwLock<HashMap<String, Machine>>>,
     pub apps: Arc<RwLock<HashMap<String, App>>>,
@@ -39,11 +41,15 @@ impl AppState {
         let litefs_base_dir = PathBuf::from(&config.data_dir).join("litefs");
         let litefs = Arc::new(LiteFSManager::new(litefs_base_dir).await?);
         
+        // Initialize DNS resolver
+        let dns_resolver = Arc::new(InternalDnsResolver::new());
+        
         Ok(Self {
             config,
             db,
             docker,
             litefs,
+            dns_resolver,
             leases: Arc::new(RwLock::new(HashMap::new())),
             machines: Arc::new(RwLock::new(HashMap::new())),
             apps: Arc::new(RwLock::new(HashMap::new())),

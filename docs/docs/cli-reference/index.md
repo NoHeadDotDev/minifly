@@ -10,6 +10,7 @@ The Minifly CLI provides a comprehensive set of commands for managing your local
 - [apps](./apps) - Manage applications
 - [machines](./machines) - Manage machines
 - [deploy](./deploy) - Deploy applications
+- [secrets](./secrets) - Manage application secrets
 - [logs](./logs) - View logs
 - [status](./status) - Check platform status
 - [stop](./stop) - Stop the platform

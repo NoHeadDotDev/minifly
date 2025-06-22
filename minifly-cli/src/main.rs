@@ -6,7 +6,7 @@ mod commands;
 mod config;
 mod client;
 
-use commands::{apps, deploy, dev, init, logs, machines, proxy, serve, status, stop};
+use commands::{apps, deploy, dev, init, logs, machines, proxy, secrets, serve, status, stop};
 use config::Config;
 
 #[derive(Parser)]
@@ -95,6 +95,12 @@ enum Commands {
     
     /// Show Minifly status
     Status,
+    
+    /// Manage application secrets
+    Secrets {
+        #[command(subcommand)]
+        action: SecretsCommands,
+    },
 }
 
 #[derive(Subcommand)]
@@ -157,6 +163,27 @@ enum MachinesCommands {
         
         #[arg(short, long, help = "Force deletion")]
         force: bool,
+    },
+}
+
+#[derive(Subcommand)]
+enum SecretsCommands {
+    /// Set one or more secrets
+    Set {
+        #[arg(help = "Secrets in KEY=VALUE format", required = true)]
+        secrets: Vec<String>,
+    },
+    
+    /// List all secrets
+    List {
+        #[arg(help = "App name (optional, uses fly.toml if not provided)")]
+        app: Option<String>,
+    },
+    
+    /// Remove one or more secrets
+    Remove {
+        #[arg(help = "Secret keys to remove", required = true)]
+        keys: Vec<String>,
     },
 }
 
@@ -246,6 +273,18 @@ async fn main() -> Result<()> {
         Commands::Status => {
             status::handle(&client).await?;
         }
+        Commands::Secrets { action } => match action {
+            SecretsCommands::Set { secrets } => {
+                secrets::handle("set", secrets).await?;
+            }
+            SecretsCommands::List { app } => {
+                let args = app.map(|a| vec![a]).unwrap_or_default();
+                secrets::handle("list", args).await?;
+            }
+            SecretsCommands::Remove { keys } => {
+                secrets::handle("remove", keys).await?;
+            }
+        },
     }
     
     Ok(())

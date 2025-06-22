@@ -1,0 +1,41 @@
+# Production LiteFS configuration that Minifly automatically adapts
+fuse:
+  dir: "/litefs"
+  allow-other: true
+
+data:
+  dir: "/var/lib/litefs"
+  compress: true
+  retention: "24h"
+  retention-monitor-interval: "1h"
+
+# HTTP proxy for database access
+proxy:
+  addr: ":20202"
+  target: "localhost:8080"
+  db: "production.db"
+  passthrough:
+    - "*.ico"
+    - "*.png"
+    - "*.jpg"
+    - "*.css"
+    - "*.js"
+
+# Production uses Consul, Minifly automatically converts to static
+lease:
+  type: "consul"
+  advertise-url: "http://${HOSTNAME}.vm.${FLY_APP_NAME}.internal:20202"
+  candidate: ${FLY_LITEFS_PRIMARY}
+  promote: true
+  demote: false
+
+consul:
+  url: "http://${FLY_CONSUL_URL}"
+  advertise-url: "http://${FLY_PRIVATE_IP}:20202"
+  key: "litefs/${FLY_APP_NAME}/primary"
+  ttl: "10s"
+  lock-ttl: "15s"
+
+log:
+  format: "json"
+  level: "info"

@@ -27,64 +27,40 @@ This example demonstrates how to build a multi-tenant Rust application using Axu
 
 ### Prerequisites
 
-1. Minifly API server running
-2. Docker installed
-3. LiteFS binary available (built from source or downloaded)
+1. Minifly installed: `cargo install minifly-cli`
+2. Docker running locally
 
-### Quick Start
+### Quick Start with Production Config Compatibility
 
-1. **Start Minifly API server** (in a separate terminal):
+This example now works with production Fly.io configurations without modifications!
+
+1. **Start Minifly**:
    ```bash
-   MINIFLY_DATABASE_URL="sqlite::memory:" cargo run --bin minifly-api
+   minifly serve
    ```
 
-2. **Deploy the application using Minifly**:
+2. **Set up secrets** (in another terminal):
    ```bash
    cd examples/multi-tenant-app
    
-   # Build and deploy (once deploy command is implemented)
-   minifly deploy
-   
-   # Or manually:
-   # Create the app
-   minifly apps create multi-tenant-demo
-   
-   # Build Docker image
-   docker build -t multi-tenant-app .
-   
-   # Create a machine
-   curl -X POST http://localhost:4280/v1/apps/multi-tenant-demo/machines \
-     -H "Content-Type: application/json" \
-     -d @- << EOF
-   {
-     "config": {
-       "image": "multi-tenant-app:latest",
-       "guest": {
-         "cpu_kind": "shared",
-         "cpus": 1,
-         "memory_mb": 512
-       },
-       "env": {
-         "DATABASE_PATH": "/litefs",
-         "RUST_LOG": "info,multi_tenant_app=debug",
-         "FLY_LITEFS_PRIMARY": "true"
-       },
-       "mounts": [{
-         "volume": "tenant_data",
-         "path": "/litefs"
-       }],
-       "services": [{
-         "ports": [{
-           "port": 80,
-           "handlers": ["http"]
-         }],
-         "protocol": "tcp",
-         "internal_port": 8080
-       }]
-     }
-   }
-   EOF
+   # Create secrets for the app
+   minifly secrets set DATABASE_URL=sqlite:///litefs/multi-tenant.db
+   minifly secrets set SECRET_KEY=your-secret-key-here
    ```
+
+3. **Deploy with production fly.toml**:
+   ```bash
+   # This uses the production fly.toml without modifications!
+   minifly deploy
+   ```
+
+4. **Minifly automatically handles**:
+   - ✅ Environment variables (FLY_APP_NAME, FLY_MACHINE_ID, etc.)
+   - ✅ Secrets loading from `.fly.secrets`
+   - ✅ Volume mapping to local directories
+   - ✅ LiteFS production config adaptation
+   - ✅ Service discovery (.internal domains)
+   - ✅ Dockerfile build with Fly.io compatibility
 
 3. **Access the application**:
    ```bash

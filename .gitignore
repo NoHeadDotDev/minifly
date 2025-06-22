@@ -29,3 +29,14 @@ Thumbs.db
 *.profraw
 *.profdata
 coverage/
+*.lcov
+
+# Minifly secrets (DO NOT COMMIT)
+.fly.secrets
+.fly.secrets.*
+
+# Minifly local data
+minifly-data/
+
+# MCP configuration (may contain API keys)
+.mcp.json

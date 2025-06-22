@@ -3,11 +3,12 @@ use bollard::{
     Docker,
     container::{Config as ContainerConfig, CreateContainerOptions, StartContainerOptions},
     image::CreateImageOptions,
-    service::{HostConfig, PortBinding, RestartPolicy, RestartPolicyNameEnum},
+    service::{HostConfig, PortBinding, RestartPolicy, RestartPolicyNameEnum, Mount, MountTypeEnum},
 };
 use futures::StreamExt;
-use minifly_core::models::{MachineConfig, GuestConfig};
+use minifly_core::models::{MachineConfig, GuestConfig, MountConfig};
 use std::collections::HashMap;
+use std::path::PathBuf;
 use tracing::{debug, error, info};
 
 #[derive(Clone)]
@@ -207,13 +208,14 @@ impl DockerClient {
             ..Default::default()
         };
         
-        // Set environment variables
-        if let Some(env) = &config.env {
-            let env_vec: Vec<String> = env.iter()
-                .map(|(k, v)| format!("{}={}", k, v))
-                .collect();
-            container_config.env = Some(env_vec);
-        }
+        // Set environment variables with Fly.io translations
+        let mut env_vars = config.env.clone().unwrap_or_default();
+        self.translate_fly_env_vars(&mut env_vars, app_name, machine_id);
+        
+        let env_vec: Vec<String> = env_vars.iter()
+            .map(|(k, v)| format!("{}={}", k, v))
+            .collect();
+        container_config.env = Some(env_vec);
         
         // Set command
         if let Some(init) = &config.init {
@@ -267,6 +269,11 @@ impl DockerClient {
             host_config.port_bindings = Some(port_bindings);
         }
         
+        // Set volume mounts
+        if let Some(mounts) = &config.mounts {
+            host_config.mounts = Some(self.map_fly_volumes(mounts, app_name)?);
+        }
+        
         container_config.host_config = Some(host_config);
         
         Ok(container_config)
@@ -289,5 +296,105 @@ impl DockerClient {
         
         // Set memory limit
         host_config.memory = Some((guest.memory_mb as i64) * 1024 * 1024);
+    }
+    
+    /// Translate Fly.io-specific environment variables to minifly equivalents
+    fn translate_fly_env_vars(&self, env: &mut HashMap<String, String>, app_name: &str, machine_id: &str) {
+        // Core Fly.io environment variables
+        env.insert("FLY_APP_NAME".to_string(), app_name.to_string());
+        env.insert("FLY_MACHINE_ID".to_string(), machine_id.to_string());
+        env.insert("FLY_REGION".to_string(), "local".to_string());
+        env.insert("FLY_PUBLIC_IP".to_string(), "127.0.0.1".to_string());
+        
+        // Generate a consistent private IP based on machine ID
+        let machine_suffix = machine_id.chars()
+            .filter(|c| c.is_numeric())
+            .take(3)
+            .collect::<String>()
+            .parse::<u8>()
+            .unwrap_or(2);
+        env.insert("FLY_PRIVATE_IP".to_string(), format!("172.19.0.{}", machine_suffix));
+        
+        // Simulate Fly's internal DNS and services
+        env.insert("FLY_CONSUL_URL".to_string(), "http://localhost:8500".to_string());
+        env.insert("PRIMARY_REGION".to_string(), "local".to_string());
+        
+        // If using Tigris/S3, point to local MinIO (if configured)
+        if env.contains_key("TIGRIS_ENDPOINT") || env.contains_key("AWS_ENDPOINT_URL") {
+            env.insert("TIGRIS_ENDPOINT".to_string(), "http://localhost:9000".to_string());
+            env.insert("AWS_ENDPOINT_URL".to_string(), "http://localhost:9000".to_string());
+            env.insert("AWS_ENDPOINT_URL_S3".to_string(), "http://localhost:9000".to_string());
+        }
+        
+        // Add helpful development overrides
+        if !env.contains_key("NODE_ENV") && !env.contains_key("RAILS_ENV") {
+            env.insert("NODE_ENV".to_string(), "development".to_string());
+        }
+    }
+    
+    /// Map Fly volumes to local directories
+    fn map_fly_volumes(&self, mounts: &[MountConfig], app_name: &str) -> Result<Vec<Mount>> {
+        mounts.iter().map(|mount| {
+            let local_path = PathBuf::from(format!("./minifly-data/{}/volumes/{}", app_name, mount.volume));
+            
+            // Ensure directory exists
+            std::fs::create_dir_all(&local_path)
+                .context(format!("Failed to create volume directory: {:?}", local_path))?;
+            
+            Ok(Mount {
+                target: Some(mount.path.clone()),
+                source: Some(local_path.to_string_lossy().to_string()),
+                typ: Some(MountTypeEnum::BIND),
+                read_only: Some(false),
+                consistency: Some("consistent".to_string()),
+                ..Default::default()
+            })
+        }).collect()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    
+    #[test]
+    fn test_translate_fly_env_vars() {
+        let client = DockerClient { client: Docker::connect_with_local_defaults().unwrap() };
+        let mut env = HashMap::new();
+        
+        client.translate_fly_env_vars(&mut env, "test-app", "d123456789");
+        
+        assert_eq!(env.get("FLY_APP_NAME").unwrap(), "test-app");
+        assert_eq!(env.get("FLY_MACHINE_ID").unwrap(), "d123456789");
+        assert_eq!(env.get("FLY_REGION").unwrap(), "local");
+        assert_eq!(env.get("FLY_PUBLIC_IP").unwrap(), "127.0.0.1");
+        assert!(env.contains_key("FLY_PRIVATE_IP"));
+        assert_eq!(env.get("FLY_CONSUL_URL").unwrap(), "http://localhost:8500");
+        assert_eq!(env.get("PRIMARY_REGION").unwrap(), "local");
+        assert_eq!(env.get("NODE_ENV").unwrap(), "development");
+    }
+    
+    #[test]
+    fn test_translate_fly_env_vars_with_tigris() {
+        let client = DockerClient { client: Docker::connect_with_local_defaults().unwrap() };
+        let mut env = HashMap::new();
+        env.insert("TIGRIS_ENDPOINT".to_string(), "https://fly.storage.tigris.dev".to_string());
+        
+        client.translate_fly_env_vars(&mut env, "test-app", "d123456789");
+        
+        assert_eq!(env.get("TIGRIS_ENDPOINT").unwrap(), "http://localhost:9000");
+        assert_eq!(env.get("AWS_ENDPOINT_URL").unwrap(), "http://localhost:9000");
+        assert_eq!(env.get("AWS_ENDPOINT_URL_S3").unwrap(), "http://localhost:9000");
+    }
+    
+    #[test]
+    fn test_translate_fly_env_vars_preserves_existing_node_env() {
+        let client = DockerClient { client: Docker::connect_with_local_defaults().unwrap() };
+        let mut env = HashMap::new();
+        env.insert("NODE_ENV".to_string(), "production".to_string());
+        
+        client.translate_fly_env_vars(&mut env, "test-app", "d123456789");
+        
+        assert_eq!(env.get("NODE_ENV").unwrap(), "production");
     }
 }

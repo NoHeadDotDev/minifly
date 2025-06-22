@@ -17,6 +17,7 @@ use tracing::{info, instrument};
 use crate::state::AppState;
 use crate::error::{ApiError, Result};
 use crate::middleware::region::{log_machine_operation, get_machine_region};
+use minifly_network::extract_container_ip;
 
 pub async fn list_machines(
     State(state): State<AppState>,
@@ -138,6 +139,24 @@ pub async fn create_machine(
                         let _ = state.litefs.stop_for_machine(&machine_id).await;
                     }
                     return Err(CoreError::DockerError(format!("Failed to start container: {}", e)).into());
+                }
+                
+                // Wait a moment for container to get IP
+                tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+                
+                // Get container IP and register with DNS
+                if let Ok(container_info) = state.docker.inspect_container(&container_id).await {
+                    if let Some(network_settings) = container_info.network_settings {
+                        if let Some(networks) = network_settings.networks {
+                            let networks_value = serde_json::to_value(&networks).unwrap_or_default();
+                            if let Some(ip) = extract_container_ip(&networks_value) {
+                                // Register with DNS resolver
+                                if let Err(e) = state.dns_resolver.register_machine(&app_name, &machine_id, ip).await {
+                                    tracing::warn!("Failed to register machine with DNS: {}", e);
+                                }
+                            }
+                        }
+                    }
                 }
             }
             Err(e) => {
@@ -262,6 +281,11 @@ pub async fn delete_machine(
         machines.remove(&machine_id);
     }
     
+    // Unregister from DNS
+    if let Err(e) = state.dns_resolver.unregister_machine(&app_name, &machine_id).await {
+        tracing::warn!("Failed to unregister machine from DNS: {}", e);
+    }
+    
     Ok(Json(SuccessResponse { ok: true }))
 }
 
@@ -297,6 +321,22 @@ pub async fn start_machine(
     let container_name = format!("minifly-{}-{}", app_name, machine_id);
     if let Err(e) = state.docker.start_container(&container_name).await {
         return Err(CoreError::DockerError(format!("Failed to start container: {}", e)).into());
+    }
+    
+    // Re-register with DNS after starting
+    tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+    if let Ok(container_info) = state.docker.inspect_container(&container_name).await {
+        if let Some(network_settings) = container_info.network_settings {
+            if let Some(networks) = network_settings.networks {
+                let networks_value = serde_json::to_value(&networks).unwrap_or_default();
+                if let Some(ip) = extract_container_ip(&networks_value) {
+                    // Register with DNS resolver
+                    if let Err(e) = state.dns_resolver.register_machine(&app_name, &machine_id, ip).await {
+                        tracing::warn!("Failed to register machine with DNS: {}", e);
+                    }
+                }
+            }
+        }
     }
     
     // Update machine state
@@ -368,6 +408,11 @@ pub async fn stop_machine(
                 timestamp: Utc::now().timestamp_millis() as u64,
             });
         }
+    }
+    
+    // Unregister from DNS when stopped
+    if let Err(e) = state.dns_resolver.unregister_machine(&app_name, &machine_id).await {
+        tracing::warn!("Failed to unregister machine from DNS: {}", e);
     }
     
     Ok(Json(StopMachineResponse { ok: true }))

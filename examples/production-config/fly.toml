@@ -1,0 +1,68 @@
+# Production fly.toml that works with Minifly without modifications
+
+app = "production-app"
+primary_region = "iad"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "8080"
+  NODE_ENV = "production"
+  LOG_LEVEL = "info"
+
+[experimental]
+  auto_rollback = true
+
+[[services]]
+  http_checks = []
+  internal_port = 8080
+  processes = ["app"]
+  protocol = "tcp"
+  script_checks = []
+
+  [services.concurrency]
+    hard_limit = 25
+    soft_limit = 20
+    type = "connections"
+
+  [[services.ports]]
+    port = 80
+    handlers = ["http"]
+    force_https = true
+
+  [[services.ports]]
+    port = 443
+    handlers = ["tls", "http"]
+
+  [[services.tcp_checks]]
+    grace_period = "1s"
+    interval = "15s"
+    restart_limit = 0
+    timeout = "2s"
+
+[[services]]
+  internal_port = 9090
+  protocol = "tcp"
+  auto_stop_machines = true
+  auto_start_machines = true
+
+  [[services.ports]]
+    port = 9090
+    handlers = ["http"]
+
+[mounts]
+  source = "production_data"
+  destination = "/data"
+
+[metrics]
+  port = 9091
+  path = "/metrics"
+
+[[statics]]
+  guest_path = "/app/public"
+  url_prefix = "/static/"
+
+[processes]
+  app = "run-app"
+  worker = "run-worker"

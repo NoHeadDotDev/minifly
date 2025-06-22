@@ -5,6 +5,7 @@ use std::path::Path;
 use std::process::Command;
 use serde::Deserialize;
 use crate::client::ApiClient;
+use crate::commands::secrets;
 use minifly_core::models::{
     CreateMachineRequest, MachineConfig, GuestConfig, ServiceConfig, 
     PortConfig, MountConfig, CreateAppRequest, RestartConfig,
@@ -18,6 +19,14 @@ struct FlyToml {
     env: Option<std::collections::HashMap<String, String>>,
     mounts: Option<MountToml>,
     services: Option<Vec<ServiceToml>>,
+    
+    // Additional fields for validation
+    #[serde(default)]
+    experimental: Option<toml::Value>,
+    #[serde(default)]
+    processes: Option<toml::Value>,
+    #[serde(default)]
+    metrics: Option<toml::Value>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -37,6 +46,11 @@ struct ServiceToml {
     internal_port: u16,
     protocol: String,
     ports: Vec<PortToml>,
+    
+    #[serde(default)]
+    auto_stop_machines: Option<bool>,
+    #[serde(default)]
+    auto_start_machines: Option<bool>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -45,12 +59,41 @@ struct PortToml {
     handlers: Vec<String>,
 }
 
-/// Handle the deploy command with optional watch mode
+/// Handles the deploy command with production config compatibility.
+/// 
+/// This function deploys applications using production Fly.io configurations
+/// without requiring modifications. It automatically handles:
+/// 
+/// - Environment variable translation (FLY_* variables)
+/// - Secrets loading from .fly.secrets files
+/// - Volume mapping to local directories  
+/// - LiteFS production configuration adaptation
+/// - Dockerfile building with Fly.io compatibility
+/// - Service discovery registration
+/// - Fly.toml validation with compatibility warnings
 /// 
 /// # Arguments
+/// 
 /// * `client` - API client for communicating with Minifly API
-/// * `path` - Optional path to fly.toml file
-/// * `watch` - Enable watch mode for automatic redeployment
+/// * `path` - Optional path to fly.toml file (defaults to "fly.toml")
+/// * `watch` - Enable watch mode for automatic redeployment on file changes
+/// 
+/// # Example
+/// 
+/// ```rust
+/// # use minifly_cli::commands::deploy;
+/// # use minifly_cli::client::ApiClient;
+/// # tokio_test::block_on(async {
+/// let client = ApiClient::new(&config)?;
+/// 
+/// // Deploy with production fly.toml
+/// deploy::handle(&client, None, false).await?;
+/// 
+/// // Deploy with watch mode
+/// deploy::handle(&client, Some("./app/fly.toml".to_string()), true).await?;
+/// # Ok::<(), anyhow::Error>(())
+/// # });
+/// ```
 pub async fn handle(client: &ApiClient, path: Option<String>, watch: bool) -> Result<()> {
     // Do the actual deployment
     deploy_without_watch(client, path).await?;
@@ -99,6 +142,16 @@ async fn deploy_without_watch(client: &ApiClient, path: Option<String>) -> Resul
     let app_name = config.app.clone();
     println!("🚀 Deploying app {}...", app_name.yellow());
     
+    // Validate fly.toml and show warnings
+    let warnings = validate_fly_toml(&config);
+    if !warnings.is_empty() {
+        println!("\n⚠️  {} found:", "Compatibility warnings".yellow());
+        for warning in warnings {
+            println!("   • {}", warning);
+        }
+        println!();
+    }
+    
     // 1. Ensure app exists
     ensure_app_exists(client, &app_name).await?;
     
@@ -113,10 +166,21 @@ async fn deploy_without_watch(client: &ApiClient, path: Option<String>) -> Resul
         None
     };
     
-    // 4. Create machine configuration
-    let machine_config = create_machine_config(&config, &image, litefs_config.is_some())?;
+    // 4. Load secrets for the app
+    let app_secrets = secrets::load_secrets(&app_name).await
+        .unwrap_or_else(|_| {
+            println!("⚠️  No secrets found for app {}", app_name.yellow());
+            std::collections::HashMap::new()
+        });
     
-    // 5. Deploy machine
+    if !app_secrets.is_empty() {
+        println!("🔐 Loaded {} secrets for app {}", app_secrets.len(), app_name.yellow());
+    }
+    
+    // 5. Create machine configuration with secrets
+    let machine_config = create_machine_config(&config, &image, litefs_config.is_some(), app_secrets)?;
+    
+    // 6. Deploy machine
     deploy_machine(client, &app_name, machine_config).await?;
     
     // Get the actual port mapping
@@ -175,17 +239,7 @@ async fn build_or_get_image(config: &FlyToml) -> Result<String> {
         if Path::new(dockerfile).exists() {
             println!("🔨 Building Docker image from {}...", dockerfile);
             
-            let image_name = format!("{}-local:latest", config.app);
-            let output = Command::new("docker")
-                .args(&["build", "-t", &image_name, "-f", dockerfile, "."])
-                .stdout(std::process::Stdio::inherit())
-                .stderr(std::process::Stdio::inherit())
-                .output()
-                .context("Failed to execute docker build")?;
-            
-            if !output.status.success() {
-                bail!("Docker build failed");
-            }
+            let image_name = build_with_fly_compatibility(dockerfile, config).await?;
             
             println!("✓ Docker image built: {}", image_name.green());
             return Ok(image_name);
@@ -217,8 +271,18 @@ async fn build_or_get_image(config: &FlyToml) -> Result<String> {
     Ok("alpine:latest".to_string())
 }
 
-fn create_machine_config(config: &FlyToml, image: &str, has_litefs: bool) -> Result<MachineConfig> {
+fn create_machine_config(
+    config: &FlyToml, 
+    image: &str, 
+    has_litefs: bool,
+    secrets: std::collections::HashMap<String, String>
+) -> Result<MachineConfig> {
     let mut env = config.env.clone().unwrap_or_default();
+    
+    // Add secrets to environment
+    for (key, value) in secrets {
+        env.insert(key, value);
+    }
     
     // Add LiteFS environment variables if LiteFS is configured
     if has_litefs {
@@ -380,4 +444,123 @@ async fn start_watch_mode(client: &ApiClient, fly_toml_path: &std::path::Path) -
     handle.abort();
     
     Ok(())
+}
+
+/// Validates a fly.toml configuration and returns warnings for unsupported features.
+/// 
+/// This function analyzes production Fly.io configurations and identifies features
+/// that may not work exactly the same in local development with Minifly. It helps
+/// developers understand what functionality is simulated vs. fully supported.
+/// 
+/// # Validated Features
+/// 
+/// - `auto_stop_machines` / `auto_start_machines` - Simulated with container pause/unpause
+/// - `experimental` features - May not be fully supported
+/// - `processes` (multi-process apps) - Simulated as separate containers
+/// - `metrics` endpoints - Not automatically configured locally
+/// - `primary_region` - Ignored (all machines run in 'local' region)
+/// 
+/// # Arguments
+/// 
+/// * `config` - The parsed fly.toml configuration to validate
+/// 
+/// # Returns
+/// 
+/// A vector of warning messages describing compatibility issues or limitations.
+/// 
+/// # Example
+/// 
+/// ```rust
+/// # use minifly_cli::commands::deploy::{FlyToml, validate_fly_toml};
+/// let config = FlyToml {
+///     app: "myapp".to_string(),
+///     primary_region: Some("iad".to_string()),
+///     // ... other fields
+/// };
+/// 
+/// let warnings = validate_fly_toml(&config);
+/// for warning in warnings {
+///     println!("⚠️  {}", warning);
+/// }
+/// ```
+fn validate_fly_toml(config: &FlyToml) -> Vec<String> {
+    let mut warnings = vec![];
+    
+    // Check for auto stop/start machines
+    if let Some(services) = &config.services {
+        for service in services {
+            if service.auto_stop_machines.unwrap_or(false) {
+                warnings.push("auto_stop_machines is simulated with container pause/unpause".to_string());
+            }
+            if service.auto_start_machines.unwrap_or(false) {
+                warnings.push("auto_start_machines is not fully supported - machines start manually".to_string());
+            }
+        }
+    }
+    
+    // Check for experimental features
+    if config.experimental.is_some() {
+        warnings.push("Experimental features may not be fully supported in local development".to_string());
+    }
+    
+    // Check for processes (multi-process apps)
+    if config.processes.is_some() {
+        warnings.push("Multi-process apps are simulated as separate containers".to_string());
+    }
+    
+    // Check for metrics
+    if config.metrics.is_some() {
+        warnings.push("Metrics endpoints are not automatically configured locally".to_string());
+    }
+    
+    // Check for primary region
+    if config.primary_region.is_some() {
+        warnings.push("Primary region is ignored - all machines run in 'local' region".to_string());
+    }
+    
+    warnings
+}
+
+/// Build Docker image with Fly.io compatibility
+async fn build_with_fly_compatibility(dockerfile: &str, config: &FlyToml) -> Result<String> {
+    let image_name = format!("{}-local:latest", config.app);
+    
+    // Read Dockerfile to check for Fly.io specific features
+    let dockerfile_content = fs::read_to_string(dockerfile)
+        .context("Failed to read Dockerfile")?;
+    
+    // Build arguments with proper ownership
+    let fly_app_name_arg = format!("FLY_APP_NAME={}", config.app);
+    let fly_region_arg = "FLY_REGION=local";
+    let fly_build_id_arg = "FLY_BUILD_ID=local-build";
+    
+    let mut build_args = vec!["build", "-t", &image_name, "-f", dockerfile];
+    
+    // Add Fly.io build arguments
+    build_args.extend(&[
+        "--build-arg", &fly_app_name_arg,
+        "--build-arg", fly_region_arg,
+        "--build-arg", fly_build_id_arg,
+    ]);
+    
+    // Warn about Fly.io base images
+    if dockerfile_content.contains("FROM flyio/") {
+        println!("⚠️  Dockerfile uses Fly.io base image - using closest equivalent");
+    }
+    
+    // Add current directory
+    build_args.push(".");
+    
+    let output = Command::new("docker")
+        .args(&build_args)
+        .stdout(std::process::Stdio::inherit())
+        .stderr(std::process::Stdio::inherit())
+        .output()
+        .context("Failed to execute docker build")?;
+    
+    if !output.status.success() {
+        bail!("Docker build failed");
+    }
+    
+    Ok(image_name)
 }

@@ -9,6 +9,10 @@ Minifly is a local development tool that simulates the Fly.io platform on your m
 - 🚀 **Local Fly.io API** - Complete Machines API compatibility
 - 🗄️ **LiteFS Integration** - Distributed SQLite with local replication
 - 🐳 **Docker Management** - Automatic container lifecycle management
+- ⚙️ **Production Config Compatibility** - Use production fly.toml without modifications
+- 🔐 **Secrets Management** - Local .fly.secrets files (git-ignored)
+- 📁 **Volume Mapping** - Fly.io volumes mapped to local directories
+- 🌐 **Service Discovery** - .internal DNS resolution
 - 🌍 **Multi-region Simulation** - Test region-specific behavior locally
 - 📊 **Real-time Monitoring** - Structured logging with region context
 - 🔄 **Hot Reloading** - Watch mode for automatic redeployment
@@ -54,19 +58,39 @@ Before you begin, make sure you have:
 
 ### Your First Deployment
 
+#### Option 1: Use Production Config (Recommended)
+
+If you have an existing Fly.io app, you can use it directly:
+
+```bash
+# Navigate to your existing app directory
+cd my-existing-fly-app
+
+# Set up any secrets needed
+minifly secrets set SECRET_KEY=development-key
+
+# Deploy using production fly.toml - no changes needed!
+minifly deploy
+```
+
+#### Option 2: Create a New App
+
 1. **Create a simple app**:
    ```bash
    mkdir my-first-app
    cd my-first-app
    ```
 
-2. **Create a `fly.toml`**:
+2. **Create a `fly.toml`** (production-ready):
    ```toml
    app = "my-first-app"
-   primary_region = "local"
+   primary_region = "iad"
 
    [build]
    dockerfile = "Dockerfile"
+
+   [env]
+   PORT = "8080"
 
    [[services]]
    internal_port = 8080
@@ -77,12 +101,21 @@ Before you begin, make sure you have:
    handlers = ["http"]
    ```
 
-3. **Create a simple Dockerfile**:
+3. **Create a Dockerfile with Fly.io features**:
    ```dockerfile
    FROM nginx:alpine
+   
+   # Fly.io build args (automatically injected by Minifly)
+   ARG FLY_APP_NAME
+   ARG FLY_REGION
+   
    COPY index.html /usr/share/nginx/html/
-   EXPOSE 80
-   CMD ["nginx", "-g", "daemon off;"]
+   
+   # Create health check endpoint
+   RUN echo '<!DOCTYPE html><html><body>OK</body></html>' > /usr/share/nginx/html/health
+   
+   EXPOSE 8080
+   CMD ["nginx", "-g", "daemon off;", "-p", "8080:8080"]
    ```
 
 4. **Create an index.html**:
@@ -94,23 +127,35 @@ Before you begin, make sure you have:
    </head>
    <body>
        <h1>Hello from Minifly! 🚀</h1>
-       <p>Your app is running locally with Fly.io compatibility.</p>
+       <p>App: <span id="app-name">Loading...</span></p>
+       <p>Region: <span id="region">Loading...</span></p>
+       <script>
+           // These would be populated by your backend in a real app
+           document.getElementById('app-name').textContent = 'my-first-app';
+           document.getElementById('region').textContent = 'local';
+       </script>
    </body>
    </html>
    ```
 
-5. **Deploy your app**:
+5. **Set up secrets** (optional):
+   ```bash
+   minifly secrets set ADMIN_PASSWORD=admin123
+   ```
+
+6. **Deploy your app**:
    ```bash
    minifly deploy
    ```
 
-6. **View your app**:
+7. **View your app**:
    Open [http://localhost:80](http://localhost:80) in your browser!
 
 ## Next Steps
 
 Now that you have Minifly running, here's what to explore next:
 
+- **[Production Config Compatibility](./production-config-compatibility)** - Use your production configs locally
 - **[CLI Reference](./cli-reference/)** - Complete command reference
 - **[API Reference](./api-reference)** - Machines API documentation  
 - **[Examples](./examples/rust-axum)** - Real-world application examples

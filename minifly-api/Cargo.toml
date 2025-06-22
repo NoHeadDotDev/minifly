@@ -9,6 +9,7 @@ license.workspace = true
 minifly-core = { path = "../minifly-core" }
 minifly-litefs = { path = "../minifly-litefs" }
 minifly-logging = { path = "../minifly-logging" }
+minifly-network = { path = "../minifly-network" }
 
 axum = { workspace = true }
 tower = { workspace = true }
