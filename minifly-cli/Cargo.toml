@@ -4,6 +4,13 @@ version.workspace = true
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+description = "CLI for Minifly - Local Fly.io development simulator with incredible DX"
+readme = "../README.md"
+keywords = ["fly", "flyio", "development", "cli", "simulator"]
+categories = ["command-line-utilities", "development-tools", "simulation"]
 
 [[bin]]
 name = "minifly"

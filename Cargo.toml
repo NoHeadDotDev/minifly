@@ -17,7 +17,9 @@ version = "0.1.0"
 edition = "2021"
 authors = ["Minifly Contributors"]
 license = "MIT"
-repository = "https://github.com/minifly/minifly"
+repository = "https://github.com/NoHeadDotDev/minifly"
+homepage = "https://minifly-docs.fly.dev"
+documentation = "https://minifly-docs.fly.dev"
 
 [workspace.dependencies]
 # Async runtime
