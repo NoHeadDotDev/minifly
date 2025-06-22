@@ -1,0 +1,31 @@
+app = "multi-tenant-demo"
+primary_region = "local"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  DATABASE_PATH = "/litefs"
+  RUST_LOG = "info,multi_tenant_app=debug"
+  PORT = "8080"
+
+[mounts]
+  source = "tenant_data"
+  destination = "/litefs"
+
+[[services]]
+  internal_port = 8080
+  protocol = "tcp"
+  
+  [[services.ports]]
+    port = 80
+    handlers = ["http"]
+    
+  [[services.tcp_checks]]
+    grace_period = "1s"
+    interval = "15s"
+    restart_limit = 0
+    timeout = "2s"
+
+[deploy]
+  strategy = "rolling"

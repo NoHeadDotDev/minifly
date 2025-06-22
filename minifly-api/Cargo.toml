@@ -1,0 +1,34 @@
+[package]
+name = "minifly-api"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+minifly-core = { path = "../minifly-core" }
+minifly-litefs = { path = "../minifly-litefs" }
+minifly-logging = { path = "../minifly-logging" }
+
+axum = { workspace = true }
+tower = { workspace = true }
+tower-http = { workspace = true }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sqlx = { workspace = true }
+bollard = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+
+# Additional dependencies
+rand = "0.8"
+base64 = "0.22"
+sha2 = "0.10"
+hyper = "1.4"
+futures = "0.3"
+hex = "0.4"

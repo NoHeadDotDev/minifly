@@ -1,0 +1,45 @@
+[package]
+name = "minifly-cli"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "minifly"
+path = "src/main.rs"
+
+[dependencies]
+minifly-core = { path = "../minifly-core" }
+minifly-logging = { path = "../minifly-logging" }
+
+clap = { workspace = true }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+
+# HTTP client and streaming
+reqwest = { version = "0.12", features = ["json", "stream"] }
+futures = "0.3"
+tokio-util = "0.7"
+
+# Terminal output
+colored = "2.1"
+indicatif = "0.17"
+dialoguer = "0.11"
+tabled = "0.16"
+
+# Configuration
+dirs = "5.0"
+toml = { workspace = true }
+
+# File watching
+notify = "4.0"
+
+# Logging
+tracing = { workspace = true }
+
+# Time handling
+chrono = { workspace = true }

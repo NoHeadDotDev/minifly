@@ -1,0 +1,66 @@
+[workspace]
+
+[package]
+name = "minifly"
+version = "0.1.0"
+edition = "2021"
+authors = ["Minifly Contributors"]
+license = "MIT"
+repository = "https://github.com/minifly/minifly"
+homepage = "https://minifly.dev"
+documentation = "https://docs.rs/minifly"
+description = "Local Fly.io development simulator with incredible developer experience"
+readme = "README.md"
+keywords = ["fly", "docker", "litefs", "development", "local"]
+categories = ["command-line-utilities", "development-tools", "web-programming"]
+
+[[bin]]
+name = "minifly"
+path = "src/main.rs"
+
+[dependencies]
+# CLI framework
+clap = { version = "4.5", features = ["derive", "env"] }
+
+# Async runtime
+tokio = { version = "1.40", features = ["full"] }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+toml = "0.8"
+
+# Error handling
+anyhow = "1.0"
+thiserror = "1.0"
+
+# HTTP client
+reqwest = { version = "0.12", features = ["json"] }
+
+# Terminal output
+colored = "2.1"
+indicatif = "0.17"
+dialoguer = "0.11"
+tabled = "0.16"
+
+# Configuration
+dirs = "5.0"
+
+# File watching
+notify = "4.0"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+
+# Utilities
+uuid = { version = "1.10", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+
+[dev-dependencies]
+tempfile = "3.8"
+tokio-test = "0.4"
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]

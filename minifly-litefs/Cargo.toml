@@ -1,0 +1,21 @@
+[package]
+name = "minifly-litefs"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+minifly-core = { path = "../minifly-core" }
+
+tokio = { workspace = true }
+axum = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+serde = { workspace = true }
+serde_yaml = { workspace = true }
+tracing = { workspace = true }
+reqwest = { workspace = true }
+
+# SQLite
+rusqlite = { version = "0.32", features = ["bundled"] }

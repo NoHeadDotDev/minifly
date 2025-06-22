@@ -1,0 +1,174 @@
+/**
+ * Any CSS included here will be global. The classic template
+ * bundles Infima by default. Infima is a CSS framework designed to
+ * work well for content-centric websites.
+ */
+
+/* You can override the default Infima variables here. */
+:root {
+  --ifm-color-primary: #7c3aed;
+  --ifm-color-primary-dark: #6d28d9;
+  --ifm-color-primary-darker: #5b21b6;
+  --ifm-color-primary-darkest: #4c1d95;
+  --ifm-color-primary-light: #8b5cf6;
+  --ifm-color-primary-lighter: #a78bfa;
+  --ifm-color-primary-lightest: #c4b5fd;
+  --ifm-code-font-size: 95%;
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
+}
+
+/* For readability concerns, you should choose a lighter palette in dark mode. */
+[data-theme='dark'] {
+  --ifm-color-primary: #a78bfa;
+  --ifm-color-primary-dark: #8b5cf6;
+  --ifm-color-primary-darker: #7c3aed;
+  --ifm-color-primary-darkest: #6d28d9;
+  --ifm-color-primary-light: #c4b5fd;
+  --ifm-color-primary-lighter: #ddd6fe;
+  --ifm-color-primary-lightest: #ede9fe;
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
+}
+
+/* Custom additions for Minifly branding */
+.navbar__title {
+  font-weight: 700;
+  background: linear-gradient(45deg, var(--ifm-color-primary), var(--ifm-color-primary-light));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Code block improvements */
+.prism-code {
+  border-radius: 8px;
+}
+
+/* Table improvements */
+table {
+  border-collapse: collapse;
+  margin: 1rem 0;
+}
+
+table th {
+  background-color: var(--ifm-color-primary-lightest);
+  color: var(--ifm-color-primary-darkest);
+  font-weight: 600;
+}
+
+/* Badge styles for CLI commands */
+.badge--cli {
+  background-color: var(--ifm-color-primary);
+  color: white;
+  font-family: monospace;
+  font-size: 0.8em;
+  padding: 0.2em 0.5em;
+  border-radius: 4px;
+}
+
+/* Callout boxes */
+.callout {
+  padding: 1rem;
+  margin: 1rem 0;
+  border-left: 4px solid var(--ifm-color-primary);
+  background-color: var(--ifm-color-primary-lightest);
+  border-radius: 0 4px 4px 0;
+}
+
+.callout--warning {
+  border-left-color: var(--ifm-color-warning);
+  background-color: var(--ifm-color-warning-lightest);
+}
+
+.callout--danger {
+  border-left-color: var(--ifm-color-danger);
+  background-color: var(--ifm-color-danger-lightest);
+}
+
+.callout--success {
+  border-left-color: var(--ifm-color-success);
+  background-color: var(--ifm-color-success-lightest);
+}
+
+/* Command line styling */
+.command-line {
+  background: #1e1e1e;
+  color: #d4d4d4;
+  padding: 1rem;
+  border-radius: 8px;
+  font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+  overflow-x: auto;
+}
+
+.command-line .prompt {
+  color: #569cd6;
+  font-weight: bold;
+}
+
+.command-line .output {
+  color: #9cdcfe;
+}
+
+/* Region badges */
+.region-badge {
+  display: inline-block;
+  padding: 0.2em 0.6em;
+  font-size: 0.75em;
+  font-weight: 600;
+  line-height: 1;
+  text-align: center;
+  white-space: nowrap;
+  vertical-align: baseline;
+  border-radius: 0.375rem;
+  background-color: var(--ifm-color-primary);
+  color: white;
+}
+
+.region-badge--local {
+  background-color: #10b981;
+}
+
+.region-badge--dev {
+  background-color: #f59e0b;
+}
+
+/* Status indicators */
+.status-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.status-indicator--running {
+  background-color: #dcfce7;
+  color: #166534;
+}
+
+.status-indicator--stopped {
+  background-color: #fef2f2;
+  color: #991b1b;
+}
+
+.status-indicator--pending {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+/* Dark mode adjustments */
+[data-theme='dark'] .status-indicator--running {
+  background-color: #064e3b;
+  color: #6ee7b7;
+}
+
+[data-theme='dark'] .status-indicator--stopped {
+  background-color: #7f1d1d;
+  color: #fca5a5;
+}
+
+[data-theme='dark'] .status-indicator--pending {
+  background-color: #78350f;
+  color: #fcd34d;
+}

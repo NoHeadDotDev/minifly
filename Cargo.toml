@@ -1,0 +1,59 @@
+[workspace]
+members = [
+    "minifly-core",
+    "minifly-api",
+    "minifly-litefs",
+    "minifly-network",
+    "minifly-cli",
+    "minifly-logging",
+]
+resolver = "2"
+
+# Exclude examples from workspace
+exclude = ["examples/*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["Minifly Contributors"]
+license = "MIT"
+repository = "https://github.com/minifly/minifly"
+
+[workspace.dependencies]
+# Async runtime
+tokio = { version = "1.40", features = ["full"] }
+
+# Web framework
+axum = { version = "0.7", features = ["macros", "json", "ws"] }
+tower = { version = "0.5", features = ["full"] }
+tower-http = { version = "0.5", features = ["trace", "cors"] }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde_yaml = "0.9"
+toml = "0.8"
+
+# Database
+sqlx = { version = "0.8", features = ["runtime-tokio", "sqlite", "migrate"] }
+
+# Docker
+bollard = "0.17"
+
+# CLI
+clap = { version = "4.5", features = ["derive", "env"] }
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+
+# Error handling
+thiserror = "1.0"
+anyhow = "1.0"
+
+# Utilities
+uuid = { version = "1.10", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+
+# HTTP client
+reqwest = { version = "0.12", features = ["stream"] }

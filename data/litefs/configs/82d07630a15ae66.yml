@@ -1,0 +1,28 @@
+fuse:
+  dir: ./data/litefs/mounts/82d07630a15ae66
+  debug: true
+  allow_other: true
+data:
+  dir: ./data/litefs/data/82d07630a15ae66
+  compress: true
+  retention: 24h
+  retention_monitor_interval: 1h
+proxy:
+  addr: :20202
+  target: localhost:8080
+  db: db
+  passthrough: []
+lease:
+  type: static
+  advertise_url: http://82d07630a15ae66:20202
+  candidate: true
+  promote: true
+  demote: false
+log:
+  format: text
+  level: debug
+consul: null
+static:
+  primary: true
+  hostname: 82d07630a15ae66
+  advertise_url: http://82d07630a15ae66:20202

@@ -1,0 +1,50 @@
+<svg width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="grad3" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#6366f1;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#8b5cf6;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background circle -->
+  <circle cx="100" cy="100" r="95" fill="#f6f8fa" stroke="#e1e8ed" stroke-width="2"/>
+  
+  <!-- LiteFS database cluster -->
+  <rect x="80" y="60" width="40" height="25" fill="url(#grad3)" rx="4"/>
+  <rect x="70" y="90" width="40" height="25" fill="#6366f1" opacity="0.8" rx="4"/>
+  <rect x="90" y="120" width="40" height="25" fill="#8b5cf6" opacity="0.6" rx="4"/>
+  
+  <!-- Database icons -->
+  <ellipse cx="100" cy="67" rx="15" ry="4" fill="#ffffff" opacity="0.8"/>
+  <ellipse cx="100" cy="77" rx="15" ry="4" fill="#ffffff" opacity="0.6"/>
+  
+  <ellipse cx="90" cy="97" rx="15" ry="4" fill="#ffffff" opacity="0.8"/>
+  <ellipse cx="90" cy="107" rx="15" ry="4" fill="#ffffff" opacity="0.6"/>
+  
+  <ellipse cx="110" cy="127" rx="15" ry="4" fill="#ffffff" opacity="0.8"/>
+  <ellipse cx="110" cy="137" rx="15" ry="4" fill="#ffffff" opacity="0.6"/>
+  
+  <!-- Replication arrows -->
+  <path d="M120 72 Q140 85 120 102" fill="none" stroke="#25c2a0" stroke-width="2"/>
+  <polygon points="118,100 122,102 119,105" fill="#25c2a0"/>
+  
+  <path d="M80 102 Q60 115 80 132" fill="none" stroke="#25c2a0" stroke-width="2"/>
+  <polygon points="78,130 82,132 79,135" fill="#25c2a0"/>
+  
+  <path d="M90 132 Q100 155 110 132" fill="none" stroke="#25c2a0" stroke-width="2"/>
+  <polygon points="108,130 112,132 109,135" fill="#25c2a0"/>
+  
+  <!-- FUSE mount point -->
+  <circle cx="50" cy="100" r="8" fill="#ff6b6b"/>
+  <text x="50" y="104" text-anchor="middle" font-family="monospace" font-size="6" fill="white">FS</text>
+  
+  <!-- Connection to FUSE -->
+  <line x1="58" y1="100" x2="70" y2="100" stroke="#ff6b6b" stroke-width="2" stroke-dasharray="3,3"/>
+  
+  <!-- Multi-tenant indicator -->
+  <rect x="140" y="80" width="30" height="40" fill="none" stroke="#2e8555" stroke-width="2" stroke-dasharray="4,4" rx="4"/>
+  <text x="155" y="88" text-anchor="middle" font-family="sans-serif" font-size="7" fill="#2e8555">Tenant</text>
+  <text x="155" y="95" text-anchor="middle" font-family="sans-serif" font-size="7" fill="#2e8555">A</text>
+  <text x="155" y="108" text-anchor="middle" font-family="sans-serif" font-size="7" fill="#2e8555">Tenant</text>
+  <text x="155" y="115" text-anchor="middle" font-family="sans-serif" font-size="7" fill="#2e8555">B</text>
+</svg>

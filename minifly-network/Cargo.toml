@@ -1,0 +1,13 @@
+[package]
+name = "minifly-network"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+minifly-core = { path = "../minifly-core" }
+
+tokio = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }

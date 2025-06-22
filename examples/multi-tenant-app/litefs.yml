@@ -1,0 +1,58 @@
+# LiteFS configuration for multi-tenant SQLite databases
+fuse:
+  # Where to mount the FUSE filesystem
+  dir: "/litefs"
+  
+  # Enable debug logging
+  debug: false
+  
+  # Allow other users to access the mounted filesystem
+  allow-other: true
+
+# Data directory for LiteFS internal data
+data:
+  dir: "/var/lib/litefs"
+  
+  # Compress LTX files
+  compress: true
+  
+  # Retention period for LTX files
+  retention: "24h"
+  
+  # How often to check retention
+  retention-monitor-interval: "1h"
+
+# HTTP proxy configuration
+proxy:
+  # Target application
+  target: "localhost:8080"
+  
+  # Database pattern to proxy
+  db: "*.db"
+  
+  # Proxy listening address
+  addr: ":20202"
+  
+  # Pass through these paths without proxying
+  passthrough:
+    - "*.ico"
+    - "*.png"
+    - "*.jpg"
+    - "*.js"
+    - "*.css"
+
+# Lease configuration for primary election
+lease:
+  # Type of lease (static for local dev, consul for production)
+  type: "static"
+  
+  # Whether this node should be a candidate for primary
+  candidate: ${FLY_LITEFS_PRIMARY:-true}
+  
+  # Advertise URL for other nodes
+  advertise-url: "http://${HOSTNAME}:20202"
+
+# Logging configuration
+log:
+  format: "text"
+  level: "info"

@@ -1,0 +1,28 @@
+fuse:
+  dir: ./data/litefs/mounts/05f581f6893eb42
+  debug: true
+  allow_other: true
+data:
+  dir: ./data/litefs/data/05f581f6893eb42
+  compress: true
+  retention: 24h
+  retention_monitor_interval: 1h
+proxy:
+  addr: :20202
+  target: localhost:8080
+  db: db
+  passthrough: []
+lease:
+  type: static
+  advertise_url: http://05f581f6893eb42:20202
+  candidate: true
+  promote: true
+  demote: false
+log:
+  format: text
+  level: debug
+consul: null
+static:
+  primary: true
+  hostname: 05f581f6893eb42
+  advertise_url: http://05f581f6893eb42:20202

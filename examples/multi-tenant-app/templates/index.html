@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block title %}Multi-Tenant App - Tenants{% endblock %}
+
+{% block header %}Multi-Tenant Application - All Tenants{% endblock %}
+
+{% block content %}
+<div class="content">
+    <div class="info-banner">
+        <strong>Welcome to the Multi-Tenant Demo!</strong><br>
+        Each tenant has their own isolated SQLite database managed by LiteFS.
+        Click on a tenant below or create a new one.
+    </div>
+
+    <h2>Active Tenants</h2>
+    
+    {% if tenants.is_empty() %}
+        <p>No tenants found. Create your first tenant!</p>
+    {% else %}
+        <div class="tenant-list">
+            {% for tenant in tenants %}
+            <div class="tenant-card">
+                <h3><a href="/tenant/{{ tenant }}">{{ tenant }}</a></h3>
+                <p>Click to view tenant dashboard</p>
+            </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+    
+    <hr style="margin: 30px 0;">
+    
+    <h2>Create New Tenant</h2>
+    <form id="create-tenant-form">
+        <div class="form-group">
+            <label for="tenant-name">Tenant Name:</label>
+            <input type="text" id="tenant-name" name="tenant-name" 
+                   pattern="[a-zA-Z0-9-_]+" 
+                   title="Only alphanumeric characters, hyphens, and underscores allowed"
+                   required>
+        </div>
+        <button type="submit">Create Tenant</button>
+    </form>
+    
+    <hr style="margin: 30px 0;">
+    
+    <h3>API Examples</h3>
+    <p>You can also interact with tenants via API:</p>
+    <pre style="background-color: #f8f9fa; padding: 10px; border-radius: 4px;">
+# List all tenants
+curl http://localhost:8080/api/tenants
+
+# Create item for specific tenant
+curl -X POST http://localhost:8080/api/items \
+  -H "X-Tenant: tenant1" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Test Item", "description": "Created via API"}'
+
+# List items for specific tenant
+curl http://localhost:8080/api/items \
+  -H "X-Tenant: tenant1"
+    </pre>
+</div>
+{% endblock %}
+
+{% block scripts %}
+document.getElementById('create-tenant-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const tenantName = document.getElementById('tenant-name').value;
+    if (!tenantName) return;
+    
+    // Create a dummy request to initialize the tenant database
+    try {
+        const response = await fetch(`/tenant/${tenantName}/items`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                name: 'Welcome Item',
+                description: 'This is your first item!'
+            })
+        });
+        
+        if (response.ok) {
+            window.location.href = `/tenant/${tenantName}`;
+        } else {
+            alert('Failed to create tenant. Please try again.');
+        }
+    } catch (error) {
+        alert('Error creating tenant: ' + error.message);
+    }
+});
+{% endblock %}

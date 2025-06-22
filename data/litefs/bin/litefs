@@ -1,0 +1,23 @@
+#!/bin/bash
+# Mock LiteFS binary for development on macOS
+# This is a placeholder until a real macOS build is available
+
+echo "Mock LiteFS v0.5.14 (development mode)"
+
+if [[ "$1" == "--version" ]]; then
+    echo "litefs v0.5.14"
+    exit 0
+fi
+
+if [[ "$1" == "mount" ]]; then
+    echo "Mock LiteFS: Would mount with config $3"
+    echo "Note: This is a mock implementation. Real LiteFS features are not available."
+    echo "To use real LiteFS, please run Minifly in a Linux environment or Docker container."
+    # Keep running to simulate the process
+    while true; do
+        sleep 60
+    done
+fi
+
+echo "Mock LiteFS: Command not implemented: $@"
+exit 1
