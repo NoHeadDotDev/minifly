@@ -2,13 +2,13 @@
 
 [package]
 name = "minifly"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 authors = ["Minifly Contributors"]
 license = "MIT"
-repository = "https://github.com/minifly/minifly"
-homepage = "https://minifly.dev"
-documentation = "https://docs.rs/minifly"
+repository = "https://github.com/NoHeadDotDev/minifly"
+homepage = "https://minifly-docs.fly.dev"
+documentation = "https://minifly-docs.fly.dev"
 description = "Local Fly.io development simulator with incredible developer experience"
 readme = "README.md"
 keywords = ["fly", "docker", "litefs", "development", "local"]
