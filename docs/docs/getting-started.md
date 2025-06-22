@@ -25,24 +25,30 @@ Before you begin, make sure you have:
 
 ### Installation
 
-1. **Clone the repository**:
+1. **Install from crates.io**:
    ```bash
-   git clone https://github.com/minifly/minifly.git
+   cargo install minifly
+   ```
+
+   Or clone from source:
+   ```bash
+   git clone https://github.com/NoHeadDotDev/minifly.git
    cd minifly
    ```
 
-2. **Build Minifly**:
+2. **Initialize your environment**:
+   ```bash
+   minifly init
+   ```
+
+3. **Start the platform**:
+   ```bash
+   minifly serve
+   ```
+   
+   If building from source:
    ```bash
    cargo build --release
-   ```
-
-3. **Initialize your environment**:
-   ```bash
-   ./target/release/minifly init
-   ```
-
-4. **Start the platform**:
-   ```bash
    ./target/release/minifly serve
    ```
 
@@ -105,16 +111,15 @@ Before you begin, make sure you have:
 
 Now that you have Minifly running, here's what to explore next:
 
-- **[Development Workflow](./guides/development-workflow)** - Learn about watch mode and hot reloading
-- **[Multi-tenant Apps](./guides/multi-tenant-apps)** - Build apps with SQLite/LiteFS per tenant
-- **[CLI Reference](./cli-reference/overview)** - Complete command reference
+- **[CLI Reference](./cli-reference/)** - Complete command reference
+- **[API Reference](./api-reference)** - Machines API documentation  
 - **[Examples](./examples/rust-axum)** - Real-world application examples
 
 ## Getting Help
 
 - 📖 **Documentation**: You're reading it!
-- 💬 **GitHub Discussions**: [Ask questions and share ideas](https://github.com/minifly/minifly/discussions)
-- 🐛 **Issues**: [Report bugs](https://github.com/minifly/minifly/issues)
-- 💡 **Feature Requests**: [Suggest improvements](https://github.com/minifly/minifly/issues/new?template=feature_request.md)
+- 💬 **GitHub Discussions**: [Ask questions and share ideas](https://github.com/NoHeadDotDev/minifly/discussions)
+- 🐛 **Issues**: [Report bugs](https://github.com/NoHeadDotDev/minifly/issues)
+- 💡 **Feature Requests**: [Suggest improvements](https://github.com/NoHeadDotDev/minifly/issues/new?template=feature_request.md)
 
-Ready to dive deeper? Check out our [comprehensive guides](./guides/installation) next!
+Ready to dive deeper? Check out our [CLI Reference](./cli-reference/) next!

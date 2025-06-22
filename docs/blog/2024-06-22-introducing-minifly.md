@@ -1,11 +1,7 @@
 ---
 slug: introducing-minifly
 title: Introducing Minifly - Local Fly.io Development Made Easy
-authors:
-  - name: Minifly Team
-    title: Core Maintainers
-    url: https://github.com/minifly/minifly
-    image_url: https://github.com/minifly.png
+authors: [minifly-team]
 tags: [announcement, development, local-environment]
 date: 2024-06-22
 ---

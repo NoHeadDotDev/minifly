@@ -1,11 +1,11 @@
 minifly-team:
   name: Minifly Team
   title: Core Maintainers
-  url: https://github.com/minifly/minifly
-  image_url: https://github.com/minifly.png
+  url: https://github.com/NoHeadDotDev/minifly
+  image_url: https://github.com/NoHeadDotDev.png
   
 minifly-bot:
   name: Minifly Bot
   title: Automated Updates
-  url: https://github.com/minifly/minifly
-  image_url: https://github.com/minifly.png
+  url: https://github.com/NoHeadDotDev/minifly
+  image_url: https://github.com/NoHeadDotDev.png
