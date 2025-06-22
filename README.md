@@ -16,13 +16,13 @@ Minifly provides a complete local development environment that simulates the Fly
 
 ## 📖 Documentation
 
-**Comprehensive documentation is available in the [`docs/`](docs/) directory:**
+**Full documentation is available at [https://minifly-docs.fly.dev](https://minifly-docs.fly.dev)**
 
-- **[Getting Started](docs/docs/getting-started.md)** - Complete setup guide with examples
-- **[CLI Reference](docs/docs/cli-reference/overview.md)** - All commands and options
-- **[API Reference](docs/docs/api-reference/overview.md)** - Complete API documentation  
-- **[Examples](docs/docs/examples/)** - Real-world application examples
-- **[Architecture](docs/docs/architecture/overview.md)** - How Minifly works internally
+Quick links:
+- **[Getting Started](https://minifly-docs.fly.dev/docs/getting-started)** - Complete setup guide with examples
+- **[CLI Reference](https://minifly-docs.fly.dev/docs/cli-reference)** - All commands and options
+- **[API Reference](https://minifly-docs.fly.dev/docs/api-reference)** - Complete API documentation  
+- **[Examples](https://github.com/NoHeadDotDev/minifly/tree/main/examples)** - Real-world application examples
 
 ### Run Documentation Locally
 

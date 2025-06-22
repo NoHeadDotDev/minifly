@@ -1,7 +1,7 @@
 # Minifly 🚀
 
 [![Crates.io](https://img.shields.io/crates/v/minifly.svg)](https://crates.io/crates/minifly)
-[![Documentation](https://docs.rs/minifly/badge.svg)](https://docs.rs/minifly)
+[![Documentation](https://img.shields.io/badge/docs-minifly--docs.fly.dev-blue)](https://minifly-docs.fly.dev)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 **Local Fly.io development simulator with incredible developer experience**
@@ -202,20 +202,21 @@ destination = "/litefs"
 
 ## 📚 Documentation
 
-- **[Getting Started Guide](https://docs.rs/minifly)** - Complete setup tutorial
-- **[API Reference](https://docs.rs/minifly)** - Full API documentation
-- **[GitHub Repository](https://github.com/minifly/minifly)** - Source code and examples
+- **[Full Documentation](https://minifly-docs.fly.dev)** - Complete documentation site
+- **[Getting Started Guide](https://minifly-docs.fly.dev/docs/getting-started)** - Complete setup tutorial
+- **[API Reference](https://minifly-docs.fly.dev/docs/api-reference)** - Full API documentation
+- **[GitHub Repository](https://github.com/NoHeadDotDev/minifly)** - Source code and examples
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please see our [Contributing Guide](https://github.com/minifly/minifly/blob/main/CONTRIBUTING.md) for details.
+Contributions are welcome! Please see our [Contributing Guide](https://github.com/NoHeadDotDev/minifly/blob/main/CONTRIBUTING.md) for details.
 
 ## 📄 License
 
-Licensed under the MIT License. See [LICENSE](https://github.com/minifly/minifly/blob/main/LICENSE) for details.
+Licensed under the MIT License. See [LICENSE](https://github.com/NoHeadDotDev/minifly/blob/main/LICENSE) for details.
 
 ---
 
 **Happy local development!** 🎉
 
-For questions and support, visit our [GitHub repository](https://github.com/minifly/minifly).
+For questions and support, visit our [GitHub repository](https://github.com/NoHeadDotDev/minifly).

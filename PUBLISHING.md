@@ -107,8 +107,8 @@ minifly status
 ## Post-Publishing
 
 ### Update Documentation
-- [ ] Update main README.md with installation instructions
-- [ ] Update Docusaurus site with crates.io installation
+- [x] Update main README.md with installation instructions
+- [x] Update Docusaurus site with crates.io installation (https://minifly-docs.fly.dev)
 - [ ] Create release notes
 
 ### Marketing and Outreach
