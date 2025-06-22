@@ -32,3 +32,11 @@ sha2 = "0.10"
 hyper = "1.4"
 futures = "0.3"
 hex = "0.4"
+
+[dev-dependencies]
+# Testing
+tokio-test = { workspace = true }
+wiremock = { workspace = true }
+tempfile = { workspace = true }
+serial_test = { workspace = true }
+pretty_assertions = { workspace = true }
