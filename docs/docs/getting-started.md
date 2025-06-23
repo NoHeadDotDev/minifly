@@ -56,6 +56,27 @@ Before you begin, make sure you have:
    ./target/release/minifly serve
    ```
 
+### Try an Example (Fastest Start)
+
+The quickest way to see Minifly in action is to run one of our examples:
+
+```bash
+# Clone the repository
+git clone https://github.com/your-repo/minifly.git
+cd minifly
+
+# Start Minifly
+minifly serve --dev
+
+# In another terminal, deploy an example
+cd examples/basic-app
+minifly deploy
+
+# Or try the full-featured todo app
+cd examples/todo-auth-app
+./run.sh
+```
+
 ### Your First Deployment
 
 #### Option 1: Use Production Config (Recommended)
@@ -149,16 +170,21 @@ minifly deploy
    ```
 
 7. **View your app**:
-   Open [http://localhost:80](http://localhost:80) in your browser!
+   Minifly will show you the exact URL after deployment (e.g., `http://localhost:32768`).
+   The port number is automatically assigned by Docker to prevent conflicts.
 
 ## Next Steps
 
 Now that you have Minifly running, here's what to explore next:
 
+- **[Examples](./examples/)** - Ready-to-run example applications:
+  - [Basic App](./examples/basic-app) - Simple HTTP server to get started
+  - [Todo Auth App](./examples/todo-auth-app) - Full-featured multi-tenant SaaS example
+  - [Multi-Tenant App](./examples/rust-axum) - Database-per-tenant architecture
+  - [Production Config](./examples/production-config) - Advanced fly.toml features
 - **[Production Config Compatibility](./production-config-compatibility)** - Use your production configs locally
 - **[CLI Reference](./cli-reference/)** - Complete command reference
-- **[API Reference](./api-reference)** - Machines API documentation  
-- **[Examples](./examples/rust-axum)** - Real-world application examples
+- **[API Reference](./api-reference)** - Machines API documentation
 
 ## Getting Help
 
