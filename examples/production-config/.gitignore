@@ -1,0 +1,21 @@
+# Minifly secrets - DO NOT COMMIT
+.fly.secrets
+.fly.secrets.*
+
+# Build artifacts
+target/
+Cargo.lock
+
+# Runtime data
+minifly-data/
+data/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db

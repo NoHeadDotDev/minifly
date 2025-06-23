@@ -38,16 +38,27 @@ A comprehensive example showcasing authentication and multi-tenant capabilities.
 
 **Run:** `cd todo-auth-app && ./run.sh`
 
-### 4. Production Config (`production-config/`)
-Shows how to use production Fly.io configurations with Minifly.
+### 4. Production Config (`production-config/`) ⭐ ENHANCED
+Comprehensive example of production config compatibility features.
 
 **Features:**
-- Complex fly.toml with multiple services
-- Environment variable handling
-- Health checks and monitoring
-- Production-ready patterns
+- 🔐 **Secrets Management** - CLI-based secrets with automatic injection
+- 🗄️ **LiteFS Production Adaptation** - Automatic production config adaptation
+- 🌐 **Service Discovery** - `.internal` DNS resolution testing
+- 📁 **Volume Mapping** - Production volume configurations
+- ⚙️ **Environment Variables** - Complete Fly.io variable injection
+- 🧪 **Feature Testing** - Comprehensive test endpoints and scripts
 
-**Run:** `cd production-config && minifly deploy`
+**Quick Start:**
+```bash
+cd production-config && ./run-demo.sh
+```
+
+**Test Features:**
+```bash
+# In another terminal after starting the app
+cd production-config && ./test-features.sh
+```
 
 ## Getting Started
 
@@ -66,9 +77,24 @@ Shows how to use production Fly.io configurations with Minifly.
 ## Development Tips
 
 - Use `minifly serve --dev` for auto-deployment and hot reloading
+- Use `minifly secrets set KEY=value` to manage application secrets
+- Production `fly.toml` and `litefs.yml` configs work without modifications
+- `.internal` domains provide service discovery between applications
 - Check `docker ps` to see running containers
 - Use `minifly logs <machine-id>` to debug issues
 - Each example has its own README with detailed instructions
+
+## New Production Config Compatibility Features
+
+Minifly now supports production Fly.io configurations out of the box:
+
+- **🔐 Secrets Management**: Use `minifly secrets set/list/remove` for secure secrets
+- **🗄️ LiteFS Integration**: Production `litefs.yml` automatically adapted for local dev
+- **🌐 Service Discovery**: `.internal` DNS domains work just like in production
+- **📁 Volume Mapping**: Production volume configs mapped to local directories
+- **⚙️ Environment Variables**: All Fly.io variables (FLY_*) automatically injected
+
+See the `production-config/` example for a comprehensive demonstration!
 
 ## Creating Your Own Example
 

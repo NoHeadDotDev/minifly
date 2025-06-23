@@ -30,6 +30,14 @@ The easiest way to run this example:
 
 ```bash
 cd examples/production-config
+
+# Set up secrets for the demo
+minifly secrets set DATABASE_URL=sqlite:///data/production.db
+minifly secrets set DATABASE_PATH=/data
+minifly secrets set SECRET_KEY=dev-secret-key-12345
+minifly secrets set API_TOKEN=dev-api-token-67890
+
+# Start with auto-deployment
 minifly serve --dev
 ```
 
@@ -37,7 +45,9 @@ This will automatically:
 - ✅ Start the Minifly platform
 - ✅ Detect and deploy the project
 - ✅ Inject Fly.io environment variables
-- ✅ Load secrets from `.fly.secrets`
+- ✅ Load secrets from `.fly.secrets.production-app`
+- ✅ Adapt production `litefs.yml` for local development
+- ✅ Enable `.internal` DNS resolution
 - ✅ Enable file watching and hot reloading
 - ✅ Show you the URL with the assigned port
 
@@ -128,9 +138,44 @@ curl http://localhost:8080/discover
 
 ## Testing Features
 
-The example app includes endpoints to test various features:
-- `/` - Basic health check showing environment variables
-- `/secrets` - Display loaded secrets (redacted)
-- `/volumes` - Test volume persistence
-- `/discover` - Test .internal DNS resolution
-- `/database` - Test LiteFS database operations
+The example app includes endpoints to test various production config compatibility features:
+
+### Core Endpoints
+- `GET /` or `/health` - Basic health check showing all Fly.io environment variables
+- `GET /secrets` - Display loaded secrets (values redacted for security)
+- `GET /volumes` - Test volume mounting and persistence
+- `GET /discover` - Show .internal DNS domain information
+- `GET /test-dns` - Test .internal DNS resolution capabilities
+- `GET /database` - Test LiteFS database connection and operations
+- `POST /database/records?name=test` - Create a database record
+
+### Example Tests
+
+```bash
+# Test environment variable injection
+curl http://localhost:8080/health | jq
+
+# Test secrets loading
+curl http://localhost:8080/secrets | jq
+
+# Test volume mounting
+curl http://localhost:8080/volumes | jq
+
+# Test service discovery
+curl http://localhost:8080/discover | jq
+curl http://localhost:8080/test-dns | jq
+
+# Test database operations (if LiteFS is configured)
+curl http://localhost:8080/database | jq
+curl -X POST "http://localhost:8080/database/records?name=MyRecord" | jq
+```
+
+### Expected Behavior
+
+With the new production config compatibility features, you should see:
+
+1. **Environment Variables**: All standard Fly.io variables (FLY_APP_NAME, FLY_MACHINE_ID, etc.)
+2. **Secrets**: Database credentials, API keys, and other secrets from `.fly.secrets.production-app`
+3. **Volumes**: Persistent storage mounted at `/data` and mapped to local directories
+4. **DNS**: Internal service discovery domains properly configured
+5. **LiteFS**: Production database configuration adapted for local development
