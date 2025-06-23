@@ -104,6 +104,41 @@ impl DockerClient {
             .context("Failed to inspect container")
     }
     
+    /// Get the assigned host ports for a container
+    /// 
+    /// Since we use automatic port allocation (port 0), Docker assigns ephemeral ports.
+    /// This function retrieves the actual assigned ports after container creation.
+    /// 
+    /// # Arguments
+    /// * `container_id` - The Docker container ID
+    /// 
+    /// # Returns
+    /// * `Ok(Vec<u16>)` - List of assigned host ports
+    /// * `Err(...)` - Failed to inspect container
+    pub async fn get_container_ports(&self, container_id: &str) -> Result<Vec<u16>> {
+        let container_info = self.inspect_container(container_id).await?;
+        let mut ports = Vec::new();
+        
+        if let Some(network_settings) = &container_info.network_settings {
+            if let Some(port_bindings) = &network_settings.ports {
+                for (_, bindings) in port_bindings {
+                    if let Some(bindings) = bindings {
+                        for binding in bindings {
+                            if let Some(host_port) = &binding.host_port {
+                                if let Ok(port) = host_port.parse::<u16>() {
+                                    ports.push(port);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        ports.sort();
+        Ok(ports)
+    }
+    
     /// Get Docker daemon version information
     pub async fn version(&self) -> Result<bollard::system::Version> {
         self.client
@@ -248,22 +283,23 @@ impl DockerClient {
             });
         }
         
-        // Set port bindings
+        // Set port bindings with automatic port allocation for local development
+        // This prevents port conflicts when running multiple apps or when ports are already in use
         if let Some(services) = &config.services {
             let mut port_bindings = HashMap::new();
             
             for service in services {
                 let internal_port = format!("{}/tcp", service.internal_port);
-                let mut bindings = vec![];
                 
-                for port_config in &service.ports {
-                    bindings.push(PortBinding {
-                        host_ip: Some("0.0.0.0".to_string()),
-                        host_port: Some(port_config.port.to_string()),
-                    });
-                }
+                // For local development, use automatic port allocation (port 0)
+                // Docker will assign an available ephemeral port (typically 32768-65535)
+                // This avoids conflicts with other services like web servers on port 80/443
+                let binding = PortBinding {
+                    host_ip: Some("0.0.0.0".to_string()),
+                    host_port: Some("0".to_string()), // Let Docker assign an available port
+                };
                 
-                port_bindings.insert(internal_port, Some(bindings));
+                port_bindings.insert(internal_port, Some(vec![binding]));
             }
             
             host_config.port_bindings = Some(port_bindings);
@@ -335,11 +371,30 @@ impl DockerClient {
     /// Map Fly volumes to local directories
     fn map_fly_volumes(&self, mounts: &[MountConfig], app_name: &str) -> Result<Vec<Mount>> {
         mounts.iter().map(|mount| {
-            let local_path = PathBuf::from(format!("./minifly-data/{}/volumes/{}", app_name, mount.volume));
+            // Use absolute path based on data directory (reuse existing minifly-data structure)
+            let base_path = if let Ok(data_dir) = std::env::var("MINIFLY_DATA_DIR") {
+                PathBuf::from(data_dir)
+            } else {
+                // Default to /tmp for volumes if no data dir specified
+                PathBuf::from("/tmp")
+            };
+            
+            // Keep the existing minifly-data structure for compatibility
+            let local_path = base_path.join("minifly-data").join(app_name).join("volumes").join(&mount.volume);
             
             // Ensure directory exists
             std::fs::create_dir_all(&local_path)
                 .context(format!("Failed to create volume directory: {:?}", local_path))?;
+            
+            // Create database file if it's a SQLite database path
+            if mount.path == "/litefs" || mount.path.contains("data") {
+                let db_file = local_path.join("app.db");
+                if !db_file.exists() {
+                    std::fs::File::create(&db_file)
+                        .context(format!("Failed to create database file: {:?}", db_file))?;
+                    info!("Created database file: {:?}", db_file);
+                }
+            }
             
             Ok(Mount {
                 target: Some(mount.path.clone()),
@@ -356,6 +411,7 @@ impl DockerClient {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use minifly_core::models::{ServiceConfig, PortConfig};
     
     #[test]
     fn test_translate_fly_env_vars() {
@@ -396,5 +452,71 @@ mod tests {
         client.translate_fly_env_vars(&mut env, "test-app", "d123456789");
         
         assert_eq!(env.get("NODE_ENV").unwrap(), "production");
+    }
+    
+    #[test]
+    fn test_build_container_config_uses_automatic_port_allocation() {
+        let client = DockerClient { client: Docker::connect_with_local_defaults().unwrap() };
+        
+        let config = MachineConfig {
+            image: "nginx:alpine".to_string(),
+            guest: GuestConfig {
+                cpu_kind: "shared".to_string(),
+                cpus: 1,
+                memory_mb: 256,
+                gpu_kind: None,
+                gpus: None,
+                kernel_args: None,
+            },
+            env: None,
+            services: Some(vec![ServiceConfig {
+                ports: vec![
+                    PortConfig {
+                        port: 80,
+                        handlers: vec!["http".to_string()],
+                        force_https: Some(false),
+                        tls_options: None,
+                    },
+                    PortConfig {
+                        port: 443,
+                        handlers: vec!["tls".to_string(), "http".to_string()],
+                        force_https: Some(false),
+                        tls_options: None,
+                    },
+                ],
+                protocol: "tcp".to_string(),
+                internal_port: 80,
+                autostop: None,
+                autostart: None,
+                force_instance_description: None,
+            }]),
+            checks: None,
+            restart: None,
+            auto_destroy: None,
+            dns: None,
+            processes: None,
+            files: None,
+            init: None,
+            mounts: None,
+            containers: None,
+        };
+        
+        let container_config = client.build_container_config("test-machine", "test-app", &config).unwrap();
+        
+        // Check that host config has port bindings
+        let host_config = container_config.host_config.unwrap();
+        let port_bindings = host_config.port_bindings.unwrap();
+        
+        // Check that port 80/tcp is mapped
+        assert!(port_bindings.contains_key("80/tcp"));
+        let bindings = port_bindings.get("80/tcp").unwrap().as_ref().unwrap();
+        
+        // Should have exactly one binding (not two like before)
+        assert_eq!(bindings.len(), 1);
+        
+        // Check that it uses automatic port allocation (port "0")
+        let binding = &bindings[0];
+        assert_eq!(binding.host_ip.as_ref().unwrap(), "0.0.0.0");
+        assert_eq!(binding.host_port.as_ref().unwrap(), "0");
     }
 }

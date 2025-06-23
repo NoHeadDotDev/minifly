@@ -10,6 +10,7 @@ use minifly_core::models::{
     CreateMachineRequest, MachineConfig, GuestConfig, ServiceConfig, 
     PortConfig, MountConfig, CreateAppRequest, RestartConfig,
 };
+use uuid::Uuid;
 
 #[derive(Debug, Deserialize)]
 struct FlyToml {
@@ -96,7 +97,7 @@ struct PortToml {
 /// ```
 pub async fn handle(client: &ApiClient, path: Option<String>, watch: bool) -> Result<()> {
     // Do the actual deployment
-    deploy_without_watch(client, path).await?;
+    let _url = deploy_without_watch(client, path, true).await?;
     
     // Enable watch mode if requested
     if watch {
@@ -111,8 +112,13 @@ pub async fn handle(client: &ApiClient, path: Option<String>, watch: bool) -> Re
     Ok(())
 }
 
+/// Handle deployment quietly (for auto-deployment from serve command)
+pub async fn handle_quiet(client: &ApiClient, path: Option<String>) -> Result<String> {
+    deploy_without_watch(client, path, false).await
+}
+
 /// Deploy without watch mode (internal function to avoid recursion)
-async fn deploy_without_watch(client: &ApiClient, path: Option<String>) -> Result<()> {
+async fn deploy_without_watch(client: &ApiClient, path: Option<String>, show_output: bool) -> Result<String> {
     let fly_toml_path = path.unwrap_or_else(|| "fly.toml".to_string());
     
     // Get the absolute path before changing directories
@@ -181,23 +187,24 @@ async fn deploy_without_watch(client: &ApiClient, path: Option<String>) -> Resul
     let machine_config = create_machine_config(&config, &image, litefs_config.is_some(), app_secrets)?;
     
     // 6. Deploy machine
-    deploy_machine(client, &app_name, machine_config).await?;
+    let machine_id = deploy_machine(client, &app_name, machine_config).await?;
     
-    // Get the actual port mapping
-    let port = config.services.as_ref()
-        .and_then(|s| s.first())
-        .and_then(|s| s.ports.first())
-        .map(|p| p.port)
-        .unwrap_or(80);
+    // Wait a bit for port assignment
+    tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
     
-    println!("\n✅ {} deployed successfully!", "Application".green().bold());
-    println!("🔗 Access your app at: {}", format!("http://localhost:{}", port).blue());
-    println!("\n📝 To check machine status:");
-    println!("   minifly machines list {}", app_name);
-    println!("\n📋 To view logs:");
-    println!("   minifly logs <machine-id>");
+    // Get the actual port from Docker
+    let actual_port = get_container_port(&app_name, &machine_id).await?;
     
-    Ok(())
+    if show_output {
+        println!("\n✅ {} deployed successfully!", "Application".green().bold());
+        println!("🔗 Access your app at: {}", format!("http://localhost:{}", actual_port).blue());
+        println!("\n📝 To check machine status:");
+        println!("   minifly machines list {}", app_name);
+        println!("\n📋 To view logs:");
+        println!("   minifly logs {}", machine_id);
+    }
+    
+    Ok(format!("http://localhost:{}", actual_port))
 }
 
 async fn ensure_app_exists(client: &ApiClient, app_name: &str) -> Result<()> {
@@ -344,11 +351,46 @@ fn create_machine_config(
     })
 }
 
-async fn deploy_machine(client: &ApiClient, app_name: &str, config: MachineConfig) -> Result<()> {
+async fn deploy_machine(client: &ApiClient, app_name: &str, config: MachineConfig) -> Result<String> {
+    // Check if a machine already exists for this app
+    let machines_response = client.get(&format!("/apps/{}/machines", app_name)).await?;
+    
+    if machines_response.status().is_success() {
+        let machines: Vec<serde_json::Value> = machines_response.json().await?;
+        
+        if !machines.is_empty() {
+            println!("🔄 Found existing machine(s), updating the first one...");
+            
+            // Get the first machine
+            let machine_id = machines[0]["id"].as_str().unwrap_or("unknown");
+            let machine_state = machines[0]["state"].as_str().unwrap_or("unknown");
+            
+            // If machine is stopped, start it
+            if machine_state == "stopped" || machine_state == "created" {
+                println!("   Starting stopped machine {}...", machine_id);
+                let start_response = client.post(&format!("/apps/{}/machines/{}/start", app_name, machine_id), &serde_json::json!({})).await?;
+                
+                if !start_response.status().is_success() {
+                    println!("   ⚠️  Failed to start existing machine, creating new one instead");
+                } else {
+                    println!("✓ Machine {} started", machine_id.green());
+                    return Ok(machine_id.to_string());
+                }
+            } else if machine_state == "started" || machine_state == "starting" {
+                println!("✓ Machine {} is already running", machine_id.green());
+                return Ok(machine_id.to_string());
+            }
+        }
+    }
+    
+    // No existing machines or failed to start, create a new one
     println!("🚀 Creating machine...");
     
+    // Generate a unique name for the machine
+    let machine_name = format!("{}-{}", app_name, &uuid::Uuid::new_v4().to_string()[..8]);
+    
     let req = CreateMachineRequest {
-        name: Some(format!("{}-1", app_name)),
+        name: Some(machine_name),
         region: Some("local".to_string()),
         config,
         skip_launch: Some(false),
@@ -367,7 +409,7 @@ async fn deploy_machine(client: &ApiClient, app_name: &str, config: MachineConfi
         println!("⏳ Waiting for machine to start...");
         tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
         
-        Ok(())
+        Ok(machine_id.to_string())
     } else {
         bail!("Failed to create machine: {}", response.text().await?);
     }
@@ -416,7 +458,7 @@ async fn start_watch_mode(client: &ApiClient, fly_toml_path: &std::path::Path) -
                                     println!("\n{}", "🔄 Change detected, redeploying...".yellow());
                                     
                                     // Redeploy without watch mode to avoid recursion
-                                    match deploy_without_watch(&client_clone, Some(fly_toml_path_clone.to_string_lossy().to_string())).await {
+                                    match deploy_without_watch(&client_clone, Some(fly_toml_path_clone.to_string_lossy().to_string()), true).await {
                                         Ok(_) => println!("{}", "✅ Redeploy completed".green()),
                                         Err(e) => eprintln!("{}", format!("❌ Redeploy failed: {}", e).red()),
                                     }
@@ -519,6 +561,82 @@ fn validate_fly_toml(config: &FlyToml) -> Vec<String> {
     }
     
     warnings
+}
+
+/// Get the actual port assigned to a container
+async fn get_container_port(app_name: &str, machine_id: &str) -> Result<u16> {
+    use std::process::Command;
+    
+    // Try to get port using container name with machine ID
+    let container_name = format!("minifly-{}-{}", app_name, machine_id);
+    
+    // Method 1: Use docker port command
+    let output = Command::new("docker")
+        .args(&["port", &container_name])
+        .output();
+        
+    if let Ok(output) = output {
+        if output.status.success() {
+            let ports = String::from_utf8_lossy(&output.stdout);
+            // Parse output like "8080/tcp -> 0.0.0.0:32768"
+            for line in ports.lines() {
+                if let Some(mapping) = line.split(" -> ").nth(1) {
+                    if let Some(port) = mapping.split(':').last() {
+                        let port = port.trim();
+                        if let Ok(port_num) = port.parse::<u16>() {
+                            return Ok(port_num);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    // Method 2: Use docker ps with filters
+    let output = Command::new("docker")
+        .args(&["ps", "--filter", &format!("name={}", container_name), "--format", "{{.Ports}}"])
+        .output();
+        
+    if let Ok(output) = output {
+        if output.status.success() {
+            let ports = String::from_utf8_lossy(&output.stdout);
+            // Parse port mapping
+            for port_mapping in ports.lines() {
+                if let Some(host_part) = port_mapping.split("->").next() {
+                    if let Some(port) = host_part.split(':').last() {
+                        let port = port.trim();
+                        if let Ok(port_num) = port.parse::<u16>() {
+                            return Ok(port_num);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    // Method 3: Try with just app name if machine ID doesn't work
+    let output = Command::new("docker")
+        .args(&["ps", "--filter", &format!("name=minifly-{}", app_name), "--format", "{{.Ports}}", "--latest"])
+        .output();
+        
+    if let Ok(output) = output {
+        if output.status.success() {
+            let ports = String::from_utf8_lossy(&output.stdout);
+            for port_mapping in ports.lines() {
+                if let Some(host_part) = port_mapping.split("->").next() {
+                    if let Some(port) = host_part.split(':').last() {
+                        let port = port.trim();
+                        if let Ok(port_num) = port.parse::<u16>() {
+                            return Ok(port_num);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    // If we can't determine the port, return a default
+    Ok(8080)
 }
 
 /// Build Docker image with Fly.io compatibility

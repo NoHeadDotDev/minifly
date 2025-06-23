@@ -5,6 +5,9 @@
 /// - LiteFS for distributed SQLite replication
 /// - Health checks and service dependency management
 /// - Process lifecycle management
+/// - Auto-deployment when run in project directories
+/// - Automatic port allocation to avoid conflicts
+/// - File watching for hot reloading in dev mode
 use anyhow::{Context, Result, bail};
 use colored::*;
 use std::process::{Command, Stdio};
@@ -19,7 +22,13 @@ use crate::commands::dependencies;
 /// # Arguments
 /// * `daemon` - Run in background as daemon process
 /// * `port` - Port number for the API server (default: 4280)
-/// * `dev` - Enable development mode with enhanced logging and auto-reload
+/// * `dev` - Enable development mode with enhanced logging, auto-deployment, and file watching
+/// 
+/// # Features
+/// - **Auto-deployment**: Automatically detects and deploys projects with fly.toml
+/// - **Port allocation**: Docker automatically assigns available ports to avoid conflicts
+/// - **File watching**: In dev mode, automatically redeploys on file changes
+/// - **Graceful shutdown**: Properly handles Ctrl+C with full cleanup
 /// 
 /// # Examples
 /// ```
@@ -28,6 +37,9 @@ use crate::commands::dependencies;
 /// 
 /// // Start as daemon in development mode
 /// serve::handle(true, 4280, true).await?;
+/// 
+/// // Start with auto-deployment in a project directory
+/// // cd examples/basic-app && minifly serve --dev
 /// ```
 pub async fn handle(daemon: bool, port: u16, dev: bool) -> Result<()> {
     println!("{}", "🚀 Starting Minifly Platform".bold().blue());
@@ -98,8 +110,38 @@ pub async fn handle(daemon: bool, port: u16, dev: bool) -> Result<()> {
         println!("   Health Check: {}", format!("http://localhost:{}/health", port).blue());
         println!("   LiteFS: {}", "Ready".green());
         
+        // Check if we're in a project directory and auto-deploy
+        if let Some(project_info) = detect_project_config().await? {
+            println!("\n{}", "📦 Project detected, auto-deploying...".cyan().bold());
+            
+            match auto_deploy_current_project(port, &project_info, dev).await {
+                Ok(app_url) => {
+                    println!("{}", "✅ Application deployed successfully!".green().bold());
+                    println!("🔗 Access your app at: {}", app_url.blue().bold());
+                    
+                    if dev {
+                        // Setup development mode features
+                        setup_dev_mode_for_project(port, &project_info).await?;
+                    }
+                }
+                Err(e) => {
+                    println!("{}", format!("⚠️  Auto-deployment failed: {}", e).yellow());
+                    println!("{}", "Platform is still available for manual deployment".dimmed());
+                }
+            }
+        }
+        
         if !daemon {
-            println!("\n{}", "Press Ctrl+C to stop the platform".dimmed());
+            if dev {
+                println!("\n{}", "🎯 Development mode active".green().bold());
+                println!("{}", "Features enabled:".bold());
+                println!("   • Auto-deployment on startup");
+                println!("   • File watching for changes");
+                println!("   • Enhanced logging");
+                println!();
+            }
+            
+            println!("{}", "Press Ctrl+C to stop the platform".dimmed());
             
             // Setup signal handlers for graceful shutdown
             tokio::signal::ctrl_c().await.context("Failed to listen for ctrl-c")?;
@@ -107,6 +149,9 @@ pub async fn handle(daemon: bool, port: u16, dev: bool) -> Result<()> {
             
             // Graceful shutdown
             shutdown_platform(port).await?;
+            
+            // Force exit to ensure background tasks don't prevent termination
+            std::process::exit(0);
         }
     } else {
         bail!("Failed to start Minifly platform - health check failed");
@@ -124,7 +169,7 @@ pub async fn handle(daemon: bool, port: u16, dev: bool) -> Result<()> {
 /// * `bool` - True if platform is running and responsive
 pub async fn is_platform_running(port: u16) -> bool {
     let client = reqwest::Client::new();
-    let url = format!("http://localhost:{}/v1/apps", port);
+    let url = format!("http://localhost:{}/v1/health", port);
     
     match client.get(&url).send().await {
         Ok(response) => response.status().is_success(),
@@ -145,6 +190,24 @@ async fn setup_directories() -> Result<()> {
     Ok(())
 }
 
+/// Setup the API server database
+async fn setup_api_database() -> Result<()> {
+    // Ensure data directory exists
+    tokio::fs::create_dir_all("data").await
+        .context("Failed to create data directory")?;
+    
+    // Create database file if it doesn't exist
+    let db_path = "data/minifly.db";
+    if !tokio::fs::metadata(db_path).await.is_ok() {
+        // Create empty database file
+        tokio::fs::File::create(db_path).await
+            .context("Failed to create database file")?;
+        info!("Created database file: {}", db_path);
+    }
+    
+    Ok(())
+}
+
 /// Start the API server process
 /// 
 /// # Arguments
@@ -154,10 +217,19 @@ async fn setup_directories() -> Result<()> {
 async fn start_api_server(port: u16, daemon: bool, dev: bool) -> Result<()> {
     println!("   • Starting API Server on port {}...", port.to_string().yellow());
     
-    let mut cmd = Command::new("cargo");
-    cmd.args(&["run", "--bin", "minifly-api"])
-        .env("MINIFLY_PORT", port.to_string())
-        .env("MINIFLY_HOST", "0.0.0.0");
+    // Ensure database directory exists and set up database
+    setup_api_database().await?;
+    
+    let mut cmd = Command::new("minifly-api");
+    
+    // Use absolute path for data directory
+    let current_dir = std::env::current_dir()
+        .context("Failed to get current directory")?;
+    let data_dir = current_dir.join("data");
+    
+    cmd.env("MINIFLY_API_PORT", port.to_string())
+        .env("MINIFLY_DATABASE_URL", format!("sqlite:{}/minifly.db", data_dir.display()))
+        .env("MINIFLY_DATA_DIR", data_dir.to_string_lossy().to_string());
     
     if dev {
         cmd.env("RUST_LOG", "debug,minifly_api=trace,tower_http=debug");
@@ -237,7 +309,7 @@ async fn comprehensive_health_check(api_client: &ApiClient, port: u16) -> bool {
     println!("   🔍 Running comprehensive health check...");
     
     // Try comprehensive health endpoint first
-    match api_client.get("/health/comprehensive").await {
+    match api_client.get("/v1/health/comprehensive").await {
         Ok(response) => {
             if response.status().is_success() {
                 println!("   ✅ All services healthy");
@@ -266,7 +338,7 @@ async fn basic_health_check(port: u16) -> bool {
     let client = reqwest::Client::new();
     
     // Check API server
-    let api_url = format!("http://localhost:{}/health", port);
+    let api_url = format!("http://localhost:{}/v1/health", port);
     if let Ok(response) = client.get(&api_url).send().await {
         if !response.status().is_success() {
             error!("API server health check failed");
@@ -349,7 +421,25 @@ async fn shutdown_platform(port: u16) -> Result<()> {
 /// # Arguments
 /// * `api_client` - API client for communicating with the platform
 async fn stop_all_machines(api_client: &ApiClient) -> Result<()> {
-    // Get list of all applications
+    // First, stop all Docker containers directly to ensure cleanup
+    println!("     → Stopping Docker containers...");
+    let output = std::process::Command::new("docker")
+        .args(&["ps", "-a", "--filter", "name=minifly-", "--format", "{{.ID}}"])
+        .output();
+        
+    if let Ok(output) = output {
+        let container_ids = String::from_utf8_lossy(&output.stdout);
+        for container_id in container_ids.lines().filter(|s| !s.is_empty()) {
+            let _ = std::process::Command::new("docker")
+                .args(&["stop", container_id])
+                .output();
+            let _ = std::process::Command::new("docker")
+                .args(&["rm", container_id])
+                .output();
+        }
+    }
+    
+    // Now stop machines via API
     let apps_response = api_client.get("/v1/apps").await?;
     if !apps_response.status().is_success() {
         bail!("Failed to retrieve applications list");
@@ -511,4 +601,315 @@ async fn cleanup_resources() -> Result<()> {
     
     info!("Cleanup completed");
     Ok(())
+}
+
+/// Project information detected in current directory
+#[derive(Debug, Clone)]
+struct ProjectInfo {
+    /// Path to fly.toml file
+    fly_toml_path: std::path::PathBuf,
+    /// App name from fly.toml
+    app_name: String,
+    /// Project type (rust, docker, etc.)
+    project_type: ProjectType,
+}
+
+#[derive(Debug, Clone)]
+enum ProjectType {
+    Rust,
+    Docker,
+    Generic,
+}
+
+/// Detect if current directory contains a deployable project
+/// 
+/// # Returns
+/// * `Ok(Some(ProjectInfo))` - Project detected and deployable
+/// * `Ok(None)` - No project detected
+/// * `Err(...)` - Error during detection
+async fn detect_project_config() -> Result<Option<ProjectInfo>> {
+    let current_dir = std::env::current_dir()
+        .context("Failed to get current directory")?;
+    
+    let fly_toml_path = current_dir.join("fly.toml");
+    
+    // Check if fly.toml exists
+    if !fly_toml_path.exists() {
+        return Ok(None);
+    }
+    
+    // Read and parse fly.toml to get app name
+    let fly_toml_content = tokio::fs::read_to_string(&fly_toml_path).await
+        .context("Failed to read fly.toml")?;
+    
+    let toml_value: toml::Value = toml::from_str(&fly_toml_content)
+        .context("Failed to parse fly.toml")?;
+    
+    let app_name = toml_value.get("app")
+        .and_then(|v| v.as_str())
+        .unwrap_or("unknown-app")
+        .to_string();
+    
+    // Detect project type
+    let project_type = if current_dir.join("Cargo.toml").exists() {
+        ProjectType::Rust
+    } else if current_dir.join("Dockerfile").exists() {
+        ProjectType::Docker
+    } else {
+        ProjectType::Generic
+    };
+    
+    Ok(Some(ProjectInfo {
+        fly_toml_path,
+        app_name,
+        project_type,
+    }))
+}
+
+/// Get the URL for a deployed app by querying the actual assigned port
+/// 
+/// Since Docker automatically assigns available ports to avoid conflicts,
+/// this function queries the Docker container to find the actual port mapping.
+/// 
+/// # Arguments
+/// * `api_client` - API client for making requests (currently unused, kept for future API integration)
+/// * `app_name` - Name of the app
+/// 
+/// # Returns
+/// * `Ok(String)` - URL where the app is accessible with the actual port
+/// * `Err(...)` - Failed to get app URL
+/// 
+/// # Example
+/// ```
+/// let url = get_deployed_app_url(&api_client, "example-app").await?;
+/// // Returns: "http://localhost:32768"
+/// ```
+async fn get_deployed_app_url(api_client: &ApiClient, app_name: &str) -> Result<String> {
+    use std::process::Command;
+    
+    // Wait a bit for container to be fully started and port to be assigned
+    tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
+    
+    // Try multiple methods to get the port
+    
+    
+    // Method 2: Get the container ID first, then get port
+    let container_id_output = Command::new("docker")
+        .args(&["ps", "-q", "--filter", &format!("name=minifly-{}", app_name), "--latest"])
+        .output();
+        
+    if let Ok(output) = container_id_output {
+        if output.status.success() {
+            let container_id = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            if !container_id.is_empty() {
+                // Now get the port for this specific container
+                let port_output = Command::new("docker")
+                    .args(&["port", &container_id])
+                    .output();
+                    
+                if let Ok(output) = port_output {
+                    if output.status.success() {
+                        let ports = String::from_utf8_lossy(&output.stdout);
+                        // Parse output like "8080/tcp -> 0.0.0.0:32768"
+                        for line in ports.lines() {
+                            if let Some(mapping) = line.split(" -> ").nth(1) {
+                                if let Some(port) = mapping.split(':').last() {
+                                    let port = port.trim();
+                                    if !port.is_empty() && port.chars().all(|c| c.is_numeric()) {
+                                        return Ok(format!("http://localhost:{}", port));
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    // Method 3: Original method with better parsing
+    let output = Command::new("docker")
+        .args(&["ps", "--filter", &format!("name=minifly-{}", app_name), "--format", "{{.Ports}}"])
+        .output()
+        .context("Failed to run docker ps command")?;
+    
+    if output.status.success() {
+        let ports_output = String::from_utf8_lossy(&output.stdout);
+        
+        // Parse various port formats Docker might output
+        for line in ports_output.lines() {
+            // Handle "0.0.0.0:32769->8080/tcp" format
+            if line.contains("->") {
+                if let Some(host_part) = line.split("->").next() {
+                    // Extract port from "0.0.0.0:32769" or ":::32769" format
+                    let port = host_part
+                        .split(':')
+                        .last()
+                        .unwrap_or("")
+                        .trim()
+                        .split(',')  // Handle multiple port mappings
+                        .next()
+                        .unwrap_or("")
+                        .trim();
+                    
+                    if !port.is_empty() && port.chars().all(|c| c.is_numeric()) {
+                        return Ok(format!("http://localhost:{}", port));
+                    }
+                }
+            }
+        }
+    }
+    
+    // If we still couldn't get it, provide helpful instructions
+    Ok("http://localhost (run 'docker ps' to find the port)".to_string())
+}
+
+/// Auto-deploy the current project using detected configuration
+/// 
+/// # Arguments
+/// * `port` - API server port
+/// * `project_info` - Project information from detection
+/// * `dev` - Whether in development mode
+/// 
+/// # Returns
+/// * `Ok(String)` - URL where the app is accessible
+/// * `Err(...)` - Deployment failed
+async fn auto_deploy_current_project(port: u16, project_info: &ProjectInfo, dev: bool) -> Result<String> {
+    println!("   📁 Project: {} ({})", project_info.app_name.green(), format!("{:?}", project_info.project_type).dimmed());
+    
+    // Create API client
+    let config = crate::config::Config {
+        api_url: format!("http://localhost:{}", port),
+        token: None,
+    };
+    let api_client = ApiClient::new(&config)?;
+    
+    // Use the existing deploy command (quietly, without showing duplicate output)
+    let fly_toml_path = project_info.fly_toml_path.to_string_lossy().to_string();
+    let app_url = crate::commands::deploy::handle_quiet(&api_client, Some(fly_toml_path)).await?;
+    
+    Ok(app_url)
+}
+
+/// Setup development mode features for the project
+/// 
+/// # Arguments
+/// * `port` - API server port
+/// * `project_info` - Project information
+async fn setup_dev_mode_for_project(port: u16, project_info: &ProjectInfo) -> Result<()> {
+    println!("   🔧 Setting up development mode...");
+    
+    // Setup file watcher
+    setup_project_file_watcher(project_info, port).await?;
+    
+    // TODO: Setup log streaming
+    println!("   ✓ File watcher enabled");
+    println!("   ✓ Development mode ready");
+    
+    Ok(())
+}
+
+/// Setup file watcher for the project
+async fn setup_project_file_watcher(project_info: &ProjectInfo, port: u16) -> Result<()> {
+    use notify::{Watcher, RecursiveMode, watcher};
+    use std::sync::mpsc::channel;
+    
+    let (tx, rx) = channel();
+    let mut watcher = watcher(tx, Duration::from_secs(1))
+        .context("Failed to create file watcher")?;
+    
+    let project_dir = project_info.fly_toml_path.parent()
+        .context("Failed to get project directory")?;
+    
+    // Watch the project directory
+    watcher.watch(project_dir, RecursiveMode::Recursive)
+        .context("Failed to start watching directory")?;
+    
+    // Spawn task to handle file change events
+    let project_info_clone = project_info.clone();
+    tokio::spawn(async move {
+        use notify::DebouncedEvent;
+        
+        loop {
+            match rx.recv() {
+                Ok(event) => {
+                    match event {
+                        DebouncedEvent::Write(path) | DebouncedEvent::Create(path) => {
+                            if should_trigger_redeploy(&path) {
+                                println!("\n{}", "🔄 File change detected, redeploying...".yellow());
+                                
+                                if let Err(e) = redeploy_project(&project_info_clone, port).await {
+                                    eprintln!("{}", format!("❌ Redeploy failed: {}", e).red());
+                                } else {
+                                    println!("{}", "✅ Redeploy completed".green());
+                                }
+                                
+                                println!("{}", "👀 Watching for changes...".dimmed());
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+                Err(_) => break,
+            }
+        }
+    });
+    
+    // Keep the watcher alive (this is a bit of a hack, but necessary for notify)
+    std::mem::forget(watcher);
+    
+    Ok(())
+}
+
+/// Determine if a file change should trigger redeployment
+fn should_trigger_redeploy(path: &std::path::Path) -> bool {
+    if let Some(filename) = path.file_name().and_then(|n| n.to_str()) {
+        match filename {
+            "fly.toml" | "Dockerfile" | "litefs.yml" => true,
+            name if name.ends_with(".rs") => true,
+            name if name.ends_with(".toml") => true,
+            _ => false,
+        }
+    } else {
+        false
+    }
+}
+
+/// Redeploy the project after file changes
+async fn redeploy_project(project_info: &ProjectInfo, port: u16) -> Result<()> {
+    let config = crate::config::Config {
+        api_url: format!("http://localhost:{}", port),
+        token: None,
+    };
+    let api_client = ApiClient::new(&config)?;
+    
+    let fly_toml_path = project_info.fly_toml_path.to_string_lossy().to_string();
+    crate::commands::deploy::handle(&api_client, Some(fly_toml_path), false).await?;
+    
+    Ok(())
+}
+
+/// Determine the app URL from fly.toml configuration
+async fn determine_app_url(fly_toml_path: &std::path::Path) -> Result<String> {
+    let fly_toml_content = tokio::fs::read_to_string(fly_toml_path).await
+        .context("Failed to read fly.toml")?;
+    
+    let toml_value: toml::Value = toml::from_str(&fly_toml_content)
+        .context("Failed to parse fly.toml")?;
+    
+    // Look for services configuration to determine port
+    if let Some(services) = toml_value.get("services").and_then(|s| s.as_array()) {
+        if let Some(service) = services.first() {
+            if let Some(ports) = service.get("ports").and_then(|p| p.as_array()) {
+                if let Some(port_config) = ports.first() {
+                    if let Some(port) = port_config.get("port").and_then(|p| p.as_integer()) {
+                        return Ok(format!("http://localhost:{}", port));
+                    }
+                }
+            }
+        }
+    }
+    
+    // Default to port 80
+    Ok("http://localhost:80".to_string())
 }
