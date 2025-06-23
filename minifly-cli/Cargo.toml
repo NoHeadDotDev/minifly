@@ -17,8 +17,8 @@ name = "minifly"
 path = "src/main.rs"
 
 [dependencies]
-minifly-core = { path = "../minifly-core" }
-minifly-logging = { path = "../minifly-logging" }
+minifly-core = { version = "0.1.2", path = "../minifly-core" }
+minifly-logging = { version = "0.1.2", path = "../minifly-logging" }
 
 clap = { workspace = true }
 tokio = { workspace = true }
@@ -50,6 +50,9 @@ tracing = { workspace = true }
 
 # Time handling
 chrono = { workspace = true }
+
+# UUID generation
+uuid = { workspace = true }
 
 [dev-dependencies]
 # Testing

@@ -12,10 +12,10 @@ keywords = ["fly", "flyio", "development", "api", "server"]
 categories = ["development-tools", "simulation"]
 
 [dependencies]
-minifly-core = { path = "../minifly-core" }
-minifly-litefs = { path = "../minifly-litefs" }
-minifly-logging = { path = "../minifly-logging" }
-minifly-network = { path = "../minifly-network" }
+minifly-core = { version = "0.1.2", path = "../minifly-core" }
+minifly-litefs = { version = "0.1.2", path = "../minifly-litefs" }
+minifly-logging = { version = "0.1.2", path = "../minifly-logging" }
+minifly-network = { version = "0.1.2", path = "../minifly-network" }
 
 axum = { workspace = true }
 tower = { workspace = true }
