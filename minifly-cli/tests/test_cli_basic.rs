@@ -87,7 +87,18 @@ fn test_cli_serve_help() {
         .success()
         .stdout(predicate::str::contains("Start the Minifly API server"))
         .stdout(predicate::str::contains("Options:"))
-        .stdout(predicate::str::contains("--port"));
+        .stdout(predicate::str::contains("--port"))
+        .stdout(predicate::str::contains("--dev"));
+}
+
+#[test]
+fn test_cli_serve_dev_flag() {
+    let mut cmd = Command::cargo_bin("minifly").unwrap();
+    cmd.arg("serve").arg("--dev").arg("--help");
+    
+    cmd.assert()
+        .success()
+        .stdout(predicate::str::contains("development mode"));
 }
 
 #[test]

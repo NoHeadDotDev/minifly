@@ -24,7 +24,26 @@ production-config/
 └── README.md         # This file
 ```
 
-## Setup
+## Quick Start
+
+The easiest way to run this example:
+
+```bash
+cd examples/production-config
+minifly serve --dev
+```
+
+This will automatically:
+- ✅ Start the Minifly platform
+- ✅ Detect and deploy the project
+- ✅ Inject Fly.io environment variables
+- ✅ Load secrets from `.fly.secrets`
+- ✅ Enable file watching and hot reloading
+- ✅ Show you the URL with the assigned port
+
+## Manual Setup (Advanced)
+
+For advanced control:
 
 1. Create a `.fly.secrets` file with your secrets:
 ```bash
@@ -33,9 +52,10 @@ SECRET_KEY=your-secret-key
 API_TOKEN=your-api-token
 ```
 
-2. Deploy the application:
+2. Start platform and deploy manually:
 ```bash
-minifly deploy
+minifly serve  # Terminal 1
+minifly deploy # Terminal 2
 ```
 
 ## Key Features

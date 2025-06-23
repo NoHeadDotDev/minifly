@@ -43,7 +43,7 @@ async fn main() -> Result<()> {
     info!("Listening on {}", addr);
     
     let listener = tokio::net::TcpListener::bind(addr).await?;
-    axum::serve(listener, app).await?;
+    axum::Server::from_tcp(listener.into_std()?)?.serve(app.into_make_service()).await?;
     
     Ok(())
 }

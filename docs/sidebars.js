@@ -18,6 +18,17 @@ const sidebars = {
     'getting-started',
     {
       type: 'category',
+      label: 'Examples',
+      items: [
+        'examples/index',
+        'examples/basic-app',
+        'examples/todo-auth-app',
+        'examples/rust-axum',
+        'examples/production-config',
+      ],
+    },
+    {
+      type: 'category',
       label: 'CLI Reference',
       items: [
         'cli-reference/overview',

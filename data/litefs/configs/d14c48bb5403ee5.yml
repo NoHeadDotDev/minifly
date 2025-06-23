@@ -1,0 +1,28 @@
+fuse:
+  dir: ./data/litefs/mounts/d14c48bb5403ee5
+  debug: true
+  allow_other: true
+data:
+  dir: ./data/litefs/data/d14c48bb5403ee5
+  compress: true
+  retention: 24h
+  retention_monitor_interval: 1h
+proxy:
+  addr: :20202
+  target: localhost:8080
+  db: db
+  passthrough: []
+lease:
+  type: static
+  advertise_url: http://d14c48bb5403ee5:20202
+  candidate: true
+  promote: true
+  demote: false
+log:
+  format: text
+  level: debug
+consul: null
+static:
+  primary: true
+  hostname: d14c48bb5403ee5
+  advertise_url: http://d14c48bb5403ee5:20202

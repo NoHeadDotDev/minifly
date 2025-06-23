@@ -4,7 +4,7 @@ This example demonstrates how to deploy a simple nginx application using Minifly
 
 ## Quick Start (Recommended)
 
-With Minifly's new production config compatibility, you can now deploy this example with a single command!
+With Minifly's auto-deployment, you can run this example with just one command!
 
 ### Prerequisites
 
@@ -13,7 +13,42 @@ With Minifly's new production config compatibility, you can now deploy this exam
 
 ### Steps
 
-1. **Start Minifly**:
+1. **Run with auto-deployment**:
+   ```bash
+   cd examples/basic-app
+   minifly serve --dev
+   ```
+
+2. **Access your application**:
+   
+   Minifly will show you the URL with the automatically assigned port, for example:
+   ```bash
+   🔗 Access your app at: http://localhost:32768
+   ```
+   
+   Open the URL shown in your terminal, or use curl:
+   ```bash
+   # Use the port shown in your terminal output
+   curl http://localhost:32768
+   ```
+
+That's it! 🚀
+
+Minifly will automatically:
+- ✅ Start the platform
+- ✅ Detect the project configuration
+- ✅ Deploy the nginx container
+- ✅ Assign an available port (no more port conflicts!)
+- ✅ Enable file watching for changes
+- ✅ Show real-time logs
+
+## Advanced: Manual Deployment
+
+For advanced users who want to control each step, you can also deploy manually:
+
+### Steps
+
+1. **Start Minifly platform**:
    ```bash
    minifly serve
    ```
@@ -24,18 +59,7 @@ With Minifly's new production config compatibility, you can now deploy this exam
    minifly deploy
    ```
 
-3. **Access your application**:
-   ```bash
-   # Open in browser
-   open http://localhost:80
-   
-   # Or use curl
-   curl http://localhost:80
-   ```
-
-That's it! 🚀
-
-## What Minifly Does Automatically
+### What Minifly Does Automatically
 
 When you run `minifly deploy`, Minifly automatically:
 
@@ -43,7 +67,7 @@ When you run `minifly deploy`, Minifly automatically:
 - ✅ **Pulls nginx:alpine** - Downloads the Docker image
 - ✅ **Creates the app** - Automatically creates "example-app"
 - ✅ **Starts the machine** - Runs the nginx container
-- ✅ **Maps ports** - Port 80 is accessible at localhost:80
+- ✅ **Maps ports** - Automatically assigns available port (no conflicts!)
 - ✅ **Injects Fly variables** - FLY_APP_NAME, FLY_REGION, etc.
 - ✅ **Shows warnings** - Alerts about auto_stop_machines simulation
 
@@ -65,7 +89,7 @@ $ minifly deploy
 ⏳ Waiting for machine to start...
 
 ✅ Application deployed successfully!
-🔗 Access your app at: http://localhost:80
+🔗 Access your app at: http://localhost:32768
 
 📝 To check machine status:
    minifly machines list example-app
@@ -165,15 +189,15 @@ minifly machines list example-app
 
 ## Troubleshooting
 
-### Port Already in Use
+### Finding Your App's Port
 
-If port 80 is already in use:
+Since Minifly automatically assigns available ports, you can find your app's port by:
 
 ```bash
-# Check what's using port 80
-lsof -i :80
+# Check running containers and their port mappings
+docker ps --filter "name=minifly-example-app"
 
-# Stop the conflicting service or modify fly.toml to use a different port
+# Or check the deployment output which shows the assigned port
 ```
 
 ### Container Won't Start
@@ -198,8 +222,8 @@ minifly machines list example-app
 # Check port mapping
 docker ps
 
-# Test with curl
-curl -v http://localhost:80
+# Test with curl (use the port shown in deployment output)
+curl -v http://localhost:<PORT>
 ```
 
 ## Legacy Manual Approach

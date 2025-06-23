@@ -23,18 +23,74 @@ This example demonstrates how to build a multi-tenant Rust application using Axu
 - **LiteFS**: Distributed SQLite replication
 - **Minifly**: Local Fly.io development environment
 
-## Running Locally with Minifly
+## Running the Example
+
+### Quick Start with Minifly (Recommended)
+
+The easiest way to run this example is with Minifly's auto-deployment:
+
+```bash
+cd examples/multi-tenant-app
+minifly serve --dev
+```
+
+This will:
+- ✅ Start the Minifly platform automatically
+- ✅ Detect and deploy the project automatically  
+- ✅ Build the Docker image and start the container
+- ✅ Enable file watching for auto-redeploy on changes
+- ✅ Stream logs in real-time
+- ✅ Show you the URL with the assigned port (e.g., http://localhost:32769)
+
+### Alternative: Direct Cargo Run
+
+If you prefer to run the Rust application directly:
+
+```bash
+cd examples/multi-tenant-app
+./run.sh
+```
+
+This will:
+- ✅ Set up the database automatically
+- ✅ Start the application on http://localhost:8080
+- ✅ Handle all configuration for you
+
+### Testing the Application
+
+Once running, you can test it:
+
+```bash
+# If using minifly serve --dev, use the port shown in deployment output
+# If using ./run.sh directly, use port 8080
+
+# View all tenants
+curl http://localhost:<PORT>/
+
+# Create item for a specific tenant  
+curl -X POST http://localhost:<PORT>/api/items \
+  -H "X-Tenant: acme-corp" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Project Alpha", "description": "Q1 2024 Initiative"}'
+
+# View tenant dashboard
+curl http://localhost:<PORT>/tenant/acme-corp
+```
+
+## Running with Minifly (Advanced)
+
+For testing with the full Minifly platform and production configs:
 
 ### Prerequisites
 
 1. Minifly installed: `cargo install minifly-cli`
 2. Docker running locally
 
-### Quick Start with Production Config Compatibility
+### Production Config Compatibility
 
-This example now works with production Fly.io configurations without modifications!
+This example works with production Fly.io configurations without modifications!
 
-1. **Start Minifly**:
+1. **Start Minifly platform**:
    ```bash
    minifly serve
    ```
@@ -62,7 +118,7 @@ This example now works with production Fly.io configurations without modificatio
    - ✅ Service discovery (.internal domains)
    - ✅ Dockerfile build with Fly.io compatibility
 
-3. **Access the application**:
+5. **Access the application**:
    ```bash
    # View all tenants
    curl http://localhost:80/
@@ -76,17 +132,6 @@ This example now works with production Fly.io configurations without modificatio
    # View tenant dashboard
    curl http://localhost:80/tenant/acme-corp
    ```
-
-### Development Mode
-
-For local development without Docker:
-
-```bash
-# Run directly
-DATABASE_PATH=./data cargo run
-
-# Access at http://localhost:8080
-```
 
 ## API Endpoints
 

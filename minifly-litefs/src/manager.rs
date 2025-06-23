@@ -160,6 +160,10 @@ impl LiteFSManager {
     }
     
     pub async fn start_for_machine(&self, machine_id: &str, is_primary: bool) -> Result<()> {
+        self.start_for_machine_with_config(machine_id, is_primary, None).await
+    }
+    
+    pub async fn start_for_machine_with_config(&self, machine_id: &str, is_primary: bool, app_name: Option<&str>) -> Result<()> {
         // Check if we have a real LiteFS binary
         if self.binary_path == PathBuf::from("litefs") {
             // Check if litefs actually exists
@@ -181,7 +185,27 @@ impl LiteFSManager {
         fs::create_dir_all(&config_dir).await
             .map_err(|e| Error::LiteFSError(format!("Failed to create config dir: {}", e)))?;
         
-        let config = LiteFSConfig::for_local_dev(machine_id, mount_dir, data_dir, is_primary);
+        // Try to load production config if app_name is provided
+        let config = if let Some(app_name) = app_name {
+            if let Ok(production_config) = self.load_production_litefs_config().await {
+                info!("Adapting production LiteFS config for machine {}", machine_id);
+                match LiteFSConfig::from_production_config(&production_config, machine_id, app_name) {
+                    Ok(config) => {
+                        info!("Successfully adapted production config for local development");
+                        config
+                    }
+                    Err(e) => {
+                        warn!("Failed to adapt production config, using default: {}", e);
+                        LiteFSConfig::for_local_dev(machine_id, mount_dir, data_dir, is_primary)
+                    }
+                }
+            } else {
+                info!("No production LiteFS config found, using default");
+                LiteFSConfig::for_local_dev(machine_id, mount_dir, data_dir, is_primary)
+            }
+        } else {
+            LiteFSConfig::for_local_dev(machine_id, mount_dir, data_dir, is_primary)
+        };
         
         self.process_manager.start_litefs(machine_id, &config, &config_dir).await?;
         
@@ -245,5 +269,20 @@ impl LiteFSManager {
     
     pub fn get_proxy_url(&self, machine_id: &str) -> String {
         format!("http://{}:20202", machine_id)
+    }
+    
+    /// Load production LiteFS configuration from litefs.yml file
+    async fn load_production_litefs_config(&self) -> Result<String> {
+        // Look for litefs.yml in current directory
+        let config_paths = ["litefs.yml", "litefs.yaml", "./litefs.yml"];
+        
+        for path in &config_paths {
+            if let Ok(contents) = fs::read_to_string(path).await {
+                info!("Found production LiteFS config at {}", path);
+                return Ok(contents);
+            }
+        }
+        
+        Err(Error::LiteFSError("No production LiteFS config found".to_string()))
     }
 }

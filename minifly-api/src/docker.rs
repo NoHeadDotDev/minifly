@@ -39,7 +39,7 @@ impl DockerClient {
         self.pull_image(&config.image).await?;
         
         // Build container configuration
-        let container_config = self.build_container_config(machine_id, app_name, config)?;
+        let container_config = self.build_container_config(machine_id, app_name, config).await?;
         
         // Create container
         let options = CreateContainerOptions {
@@ -224,7 +224,7 @@ impl DockerClient {
         Ok(())
     }
     
-    fn build_container_config(
+    async fn build_container_config(
         &self,
         machine_id: &str,
         app_name: &str,
@@ -246,6 +246,13 @@ impl DockerClient {
         // Set environment variables with Fly.io translations
         let mut env_vars = config.env.clone().unwrap_or_default();
         self.translate_fly_env_vars(&mut env_vars, app_name, machine_id);
+        
+        // Load and inject secrets
+        if let Ok(secrets) = self.load_secrets(app_name).await {
+            for (key, value) in secrets {
+                env_vars.insert(key, value);
+            }
+        }
         
         let env_vec: Vec<String> = env_vars.iter()
             .map(|(k, v)| format!("{}={}", k, v))
@@ -368,6 +375,80 @@ impl DockerClient {
         }
     }
     
+    /// Load secrets from .fly.secrets files for the specified application.
+    /// 
+    /// This function implements a hierarchical secrets loading system:
+    /// 1. First loads app-specific secrets from `.fly.secrets.<app_name>`
+    /// 2. Then loads default secrets from `.fly.secrets`
+    /// 3. App-specific secrets take precedence over default secrets
+    async fn load_secrets(&self, app_name: &str) -> Result<HashMap<String, String>> {
+        use std::path::Path;
+        use tokio::fs;
+        
+        let mut secrets = HashMap::new();
+        
+        // Try app-specific secrets file first
+        let app_secrets_file = format!(".fly.secrets.{}", app_name);
+        if Path::new(&app_secrets_file).exists() {
+            let contents = fs::read_to_string(&app_secrets_file).await
+                .context(format!("Failed to read {}", app_secrets_file))?;
+            self.parse_secrets(&contents, &mut secrets)?;
+        }
+        
+        // Then load default secrets file
+        let default_secrets_file = ".fly.secrets";
+        if Path::new(default_secrets_file).exists() {
+            let contents = fs::read_to_string(default_secrets_file).await
+                .context("Failed to read .fly.secrets")?;
+            // Don't overwrite app-specific secrets
+            let mut default_secrets = HashMap::new();
+            self.parse_secrets(&contents, &mut default_secrets)?;
+            for (k, v) in default_secrets {
+                secrets.entry(k).or_insert(v);
+            }
+        }
+        
+        Ok(secrets)
+    }
+
+    /// Parse secrets from file contents in KEY=VALUE format
+    fn parse_secrets(&self, contents: &str, secrets: &mut HashMap<String, String>) -> Result<()> {
+        use anyhow::bail;
+        
+        for (line_num, line) in contents.lines().enumerate() {
+            let line = line.trim();
+            
+            // Skip empty lines and comments
+            if line.is_empty() || line.starts_with('#') {
+                continue;
+            }
+            
+            // Parse KEY=VALUE
+            if let Some(pos) = line.find('=') {
+                let key = line[..pos].trim();
+                let value = line[pos + 1..].trim();
+                
+                if key.is_empty() {
+                    bail!("Empty key at line {}", line_num + 1);
+                }
+                
+                // Remove quotes if present
+                let value = if (value.starts_with('"') && value.ends_with('"')) ||
+                            (value.starts_with('\'') && value.ends_with('\'')) {
+                    &value[1..value.len() - 1]
+                } else {
+                    value
+                };
+                
+                secrets.insert(key.to_string(), value.to_string());
+            } else {
+                bail!("Invalid format at line {} - expected KEY=VALUE", line_num + 1);
+            }
+        }
+        
+        Ok(())
+    }
+
     /// Map Fly volumes to local directories
     fn map_fly_volumes(&self, mounts: &[MountConfig], app_name: &str) -> Result<Vec<Mount>> {
         mounts.iter().map(|mount| {
@@ -454,8 +535,8 @@ mod tests {
         assert_eq!(env.get("NODE_ENV").unwrap(), "production");
     }
     
-    #[test]
-    fn test_build_container_config_uses_automatic_port_allocation() {
+    #[tokio::test]
+    async fn test_build_container_config_uses_automatic_port_allocation() {
         let client = DockerClient { client: Docker::connect_with_local_defaults().unwrap() };
         
         let config = MachineConfig {
@@ -501,7 +582,7 @@ mod tests {
             containers: None,
         };
         
-        let container_config = client.build_container_config("test-machine", "test-app", &config).unwrap();
+        let container_config = client.build_container_config("test-machine", "test-app", &config).await.unwrap();
         
         // Check that host config has port bindings
         let host_config = container_config.host_config.unwrap();

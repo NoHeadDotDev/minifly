@@ -1,6 +1,5 @@
 use axum::{
-    extract::Request,
-    http::HeaderMap,
+    http::{HeaderMap, Request},
     middleware::Next,
     response::Response,
 };
@@ -10,12 +9,12 @@ use tracing::debug;
 pub struct TenantId(pub String);
 
 pub async fn extract_tenant(
-    headers: HeaderMap,
-    mut request: Request,
-    next: Next,
+    mut request: Request<axum::body::Body>,
+    next: Next<axum::body::Body>,
 ) -> Response {
     // Extract tenant from various sources
-    let tenant = extract_tenant_id(&headers, &request);
+    let headers = request.headers();
+    let tenant = extract_tenant_id(headers, &request);
     
     debug!("Processing request for tenant: {}", tenant);
     
@@ -26,7 +25,7 @@ pub async fn extract_tenant(
     next.run(request).await
 }
 
-fn extract_tenant_id(headers: &HeaderMap, request: &Request) -> String {
+fn extract_tenant_id(headers: &HeaderMap, request: &Request<axum::body::Body>) -> String {
     // 1. Check X-Tenant header
     if let Some(tenant_header) = headers.get("X-Tenant") {
         if let Ok(tenant) = tenant_header.to_str() {

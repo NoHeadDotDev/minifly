@@ -13,6 +13,8 @@ Minifly provides a complete local development environment that simulates the Fly
 - 📊 **Real-time Monitoring** - Comprehensive status dashboards and logging
 - 🐳 **Docker Management** - Automatic container lifecycle management
 - ⚡ **Lightning Fast** - Instant deployments and real-time feedback
+- 🎯 **Auto-deployment** - Just run `minifly serve --dev` in your project directory
+- 🔌 **No Port Conflicts** - Automatic port allocation for all containers
 
 ## 📖 Documentation
 
@@ -66,6 +68,25 @@ Minifly consists of several components:
 - Docker or Podman
 - SQLite
 
+### Quick Start
+
+The easiest way to get started:
+
+```bash
+# Install Minifly
+cargo install minifly-cli
+
+# In your project directory with a fly.toml file
+minifly serve --dev
+```
+
+That's it! Minifly will:
+- ✅ Start the platform automatically
+- ✅ Detect your project configuration
+- ✅ Deploy your application
+- ✅ Show you the URL with the assigned port
+- ✅ Watch for file changes and redeploy
+
 ### Building from Source
 
 ```bash
@@ -76,43 +97,71 @@ cd minifly
 # Build all components
 cargo build --release
 
-# The binaries will be in target/release/
+# Install the CLI
+cargo install --path minifly-cli
 ```
 
-### Running the API Server
+### Manual Usage
+
+For more control, you can use individual commands:
 
 ```bash
-# Start the API server
-./target/release/minifly-api
+# Start the platform
+minifly serve
 
-# Or with custom configuration
-MINIFLY_API_PORT=8080 ./target/release/minifly-api
-```
+# Deploy from fly.toml
+minifly deploy
 
-### Using the CLI
-
-```bash
-# Initialize Minifly
-minifly init
-
-# Create an app
+# Create apps and machines manually
 minifly apps create my-app
-
-# Create a machine
 minifly machines create --app my-app --image nginx:latest
 
-# List machines
+# List and manage machines
 minifly machines list --app my-app
-
-# Start a machine
 minifly machines start <machine-id>
+minifly machines stop <machine-id>
 
 # View logs
 minifly logs <machine-id>
-
-# Stop a machine
-minifly machines stop <machine-id>
 ```
+
+## 🎯 Developer Experience
+
+Minifly is designed to provide an incredible developer experience:
+
+### One-Command Development
+
+Just run `minifly serve --dev` in any directory with a `fly.toml` file:
+
+```bash
+cd my-fly-app
+minifly serve --dev
+# 🚀 Platform starts
+# 📦 App deploys automatically
+# 🔗 Access your app at: http://localhost:32768
+# 👀 Watching for changes...
+```
+
+### No More Port Conflicts
+
+Minifly automatically assigns available ports to your containers:
+- No more "port already in use" errors
+- Run multiple apps simultaneously
+- Each deployment shows you the exact URL
+
+### File Watching & Hot Reload
+
+In development mode (`--dev`), Minifly watches your files and automatically redeploys when you make changes:
+- Watches `fly.toml`, `Dockerfile`, and source files
+- Instant feedback on changes
+- See deployment logs in real-time
+
+### Clean Shutdown
+
+Press Ctrl+C once to gracefully shut down:
+- All containers stop cleanly
+- Resources are properly released
+- No hanging processes
 
 ## API Compatibility
 
@@ -214,23 +263,41 @@ cargo build -p minifly-cli
 
 ## Examples
 
-### Multi-Tenant Application
+Check out our example applications in the `examples/` directory:
 
-The `examples/multi-tenant-app` directory contains a complete example of building a multi-tenant SaaS application with:
+### 🔐 Todo Auth App (Featured)
 
+A comprehensive multi-tenant SaaS application demonstrating:
+- **Email + password authentication** with secure sessions
+- **Per-user app isolation** with dedicated databases
+- **Multi-region deployment** with user-selectable regions
+- **Image upload and storage** for todos
+- **Modern responsive UI** with server-side rendering
+
+```bash
+cd examples/todo-auth-app
+minifly deploy  # or ./run.sh
+```
+
+### 🏢 Multi-Tenant Application
+
+A database-per-tenant architecture example featuring:
 - **Per-tenant SQLite databases** managed by LiteFS
 - **Axum web framework** with async Rust
-- **Askama templating** for type-safe HTML
 - **Automatic tenant detection** from headers, subdomains, or paths
-- **fly.toml deployment** configuration
+- **Production-ready patterns** for SaaS applications
 
-To run the example:
 ```bash
 cd examples/multi-tenant-app
-./run-dev.sh  # Local development
-# OR
-minifly deploy  # Deploy to local Minifly
+./run.sh
 ```
+
+### 🚀 More Examples
+
+- **Basic App** - Simple HTTP server to get started
+- **Production Config** - Advanced fly.toml features and configurations
+
+See the [examples directory](./examples) for all available examples.
 
 ## Roadmap
 

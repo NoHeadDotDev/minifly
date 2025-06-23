@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block title %}Sign Up{% endblock %}
+
+{% block content %}
+<div class="auth-container">
+    <h1>Sign Up</h1>
+    
+    {% if let Some(error) = error %}
+        <div class="alert alert-error">{{ error }}</div>
+    {% endif %}
+    
+    <form action="/signup" method="post" class="auth-form">
+        <div class="form-group">
+            <label for="email">Email</label>
+            <input type="email" id="email" name="email" value="{{ email }}" required autofocus>
+        </div>
+        
+        <div class="form-group">
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" required minlength="8">
+            <small>Minimum 8 characters</small>
+        </div>
+        
+        <div class="form-group">
+            <label for="region">Select Your Region</label>
+            <select id="region" name="region" required>
+                <option value="">Choose a region...</option>
+                {% for (code, name) in regions %}
+                    <option value="{{ code }}">{{ name }}</option>
+                {% endfor %}
+            </select>
+            <small>Your app and database will be deployed in this region</small>
+        </div>
+        
+        <button type="submit" class="btn btn-primary btn-block">Create Account</button>
+    </form>
+    
+    <p class="auth-link">
+        Already have an account? <a href="/login">Login</a>
+    </p>
+</div>
+{% endblock %}

@@ -1,0 +1,27 @@
+app = "todo-auth-app"
+primary_region = "local"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  DATABASE_PATH = "/litefs"
+  DATABASE_URL = "sqlite:///litefs/app.db"
+  RUST_LOG = "info,todo_auth_app=debug"
+  PORT = "8080"
+  # Minifly API is accessible from within containers
+  MINIFLY_API_URL = "http://host.docker.internal:4280"
+  # Development session secret (use secrets in production)
+  SESSION_SECRET = "development-secret-key-change-in-production-32-bytes-long"
+
+[mounts]
+  source = "app_data"
+  destination = "/litefs"
+
+[[services]]
+  internal_port = 8080
+  protocol = "tcp"
+  
+  [[services.ports]]
+    port = 8080
+    handlers = ["http"]

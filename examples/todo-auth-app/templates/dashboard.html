@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<header class="dashboard-header">
+    <h1>Todo Dashboard</h1>
+    <div class="header-actions">
+        <span class="user-email">{{ user.email }}</span>
+        <form action="/logout" method="post" style="display: inline;">
+            <button type="submit" class="btn btn-secondary btn-sm">Logout</button>
+        </form>
+    </div>
+</header>
+
+<div class="dashboard-layout">
+    <aside class="regions-sidebar">
+        <h2>Your Regions</h2>
+        <ul class="region-list">
+            {% for (app, url) in regions %}
+                <li class="region-item {% if Some(app.region.clone()) == selected_region %}active{% endif %}">
+                    <a href="/region/{{ app.region }}">
+                        <span class="region-name">{{ app.region }}</span>
+                        <span class="region-status {{ app.status }}">{{ app.status }}</span>
+                    </a>
+                    <small class="region-url">{{ url }}</small>
+                </li>
+            {% endfor %}
+        </ul>
+        {% if regions.is_empty() %}
+            <p class="no-regions">No regions provisioned yet.</p>
+        {% endif %}
+    </aside>
+
+    <main class="dashboard-main">
+        <section class="todo-section">
+            <h2>
+                {% if let Some(region) = selected_region %}
+                    Todos in {{ region }}
+                {% else %}
+                    All Todos
+                {% endif %}
+            </h2>
+
+            <form action="/todos" method="post" class="todo-form">
+                <div class="form-row">
+                    <input type="text" name="title" placeholder="What needs to be done?" required>
+                    <button type="submit" class="btn btn-primary">Add Todo</button>
+                </div>
+                <textarea name="description" placeholder="Description (optional)" rows="2"></textarea>
+            </form>
+
+            <div class="todo-list">
+                {% for todo in todos %}
+                    <div class="todo-item {% if todo.completed %}completed{% endif %}">
+                        <div class="todo-content">
+                            <form action="/todos/{{ todo.id }}/toggle" method="post" style="display: inline;">
+                                <input type="checkbox" {% if todo.completed %}checked{% endif %} 
+                                       onchange="this.form.submit()">
+                            </form>
+                            <div class="todo-details">
+                                <h3>{{ todo.title }}</h3>
+                                {% if let Some(desc) = todo.description %}
+                                    <p>{{ desc }}</p>
+                                {% endif %}
+                                <small class="todo-date">Created: {{ todo.created_at.format("%Y-%m-%d %H:%M") }}</small>
+                            </div>
+                        </div>
+                        
+                        <div class="todo-actions">
+                            {% if let Some(image_data) = todo.image_data %}
+                                {% if let Some(mime_type) = todo.image_mime_type %}
+                                    <div class="todo-image">
+                                        <img src="data:{{ mime_type }};base64,{{ image_data }}" 
+                                             alt="Todo image" class="thumbnail">
+                                    </div>
+                                {% endif %}
+                            {% else %}
+                                <form action="/todos/{{ todo.id }}/image" method="post" 
+                                      enctype="multipart/form-data" class="image-upload-form">
+                                    <input type="file" name="image" accept="image/*" 
+                                           onchange="this.form.submit()" class="file-input">
+                                    <label for="image" class="btn btn-sm">📷 Add Image</label>
+                                </form>
+                            {% endif %}
+                            
+                            <form action="/todos/{{ todo.id }}/delete" method="post" style="display: inline;">
+                                <button type="submit" class="btn btn-danger btn-sm" 
+                                        onclick="return confirm('Delete this todo?')">Delete</button>
+                            </form>
+                        </div>
+                    </div>
+                {% endfor %}
+                
+                {% if todos.is_empty() %}
+                    <p class="empty-state">No todos yet. Create your first one above!</p>
+                {% endif %}
+            </div>
+        </section>
+    </main>
+</div>
+{% endblock %}

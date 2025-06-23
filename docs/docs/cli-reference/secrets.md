@@ -132,7 +132,7 @@ Secrets files are automatically excluded from git via `.gitignore`:
 
 ## Environment Variable Integration
 
-Secrets are automatically loaded as environment variables when your application starts:
+Secrets are automatically loaded as environment variables when your application starts. No manual sourcing or export commands required - Minifly handles the integration seamlessly during container creation:
 
 ```rust
 // In your Rust application

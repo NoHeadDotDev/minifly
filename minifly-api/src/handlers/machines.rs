@@ -125,7 +125,7 @@ pub async fn create_machine(
                 .map(|v| v == "true")
                 .unwrap_or(true);
             
-            if let Err(e) = state.litefs.start_for_machine(&machine_id, is_primary).await {
+            if let Err(e) = state.litefs.start_for_machine_with_config(&machine_id, is_primary, Some(&app_name)).await {
                 return Err(CoreError::LiteFSError(format!("Failed to start LiteFS: {}", e)).into());
             }
         }

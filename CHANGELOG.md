@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Enhanced
+- **Production Config Compatibility**: Comprehensive enhancements to production config support
+- **Secrets Management**: Enhanced automatic injection of secrets as environment variables during container startup
+- **LiteFS Production Adaptation**: Improved production `litefs.yml` config adaptation with robust validation and error handling
+- **Service Discovery**: Automatic DNS registration/unregistration for .internal domain resolution
+- **Docker Integration**: Seamless secrets loading integration with container creation process
+
+### Improved
+- **LiteFS Config Validation**: Added validation for proxy targets, lease types, and configuration paths
+- **Error Recovery**: Enhanced fallback mechanisms when production config adaptation fails
+- **Development Experience**: Better logging and debug integration for troubleshooting production config issues
+
 ## [0.1.2] - 2024-06-23
 
 ### Fixed

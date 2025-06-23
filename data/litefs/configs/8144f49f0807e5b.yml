@@ -1,0 +1,28 @@
+fuse:
+  dir: /Users/jaredreyes/Developer/minifly/data/litefs/mounts/8144f49f0807e5b
+  debug: true
+  allow_other: true
+data:
+  dir: /Users/jaredreyes/Developer/minifly/data/litefs/data/8144f49f0807e5b
+  compress: true
+  retention: 24h
+  retention_monitor_interval: 1h
+proxy:
+  addr: :20202
+  target: localhost:8080
+  db: db
+  passthrough: []
+lease:
+  type: static
+  advertise_url: http://8144f49f0807e5b:20202
+  candidate: true
+  promote: true
+  demote: false
+log:
+  format: text
+  level: debug
+consul: null
+static:
+  primary: true
+  hostname: 8144f49f0807e5b
+  advertise_url: http://8144f49f0807e5b:20202

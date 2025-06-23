@@ -5,6 +5,7 @@
 
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+use tracing::{info, warn};
 
 /// Main LiteFS configuration structure.
 /// 
@@ -244,29 +245,84 @@ impl LiteFSConfig {
     /// assert_eq!(config.lease.lease_type, "static");
     /// ```
     pub fn from_production_config(content: &str, machine_id: &str, app_name: &str) -> Result<Self, anyhow::Error> {
-        let mut config: LiteFSConfig = serde_yaml::from_str(content)?;
+        use anyhow::{Context, bail};
         
-        // Override lease configuration for local development
-        if config.lease.lease_type == "consul" {
-            // Use static lease locally instead of consul
-            config.lease.lease_type = "static".to_string();
-            config.lease.candidate = Some(true);
-            config.lease.promote = Some(true);
-            config.lease.advertise_url = Some(format!("http://{}:20202", machine_id));
+        let mut config: LiteFSConfig = serde_yaml::from_str(content)
+            .context("Failed to parse production LiteFS configuration")?;
+        
+        // Validate and adapt lease configuration
+        match config.lease.lease_type.as_str() {
+            "consul" => {
+                info!("Converting Consul lease to static lease for local development");
+                config.lease.lease_type = "static".to_string();
+                config.lease.candidate = Some(true);
+                config.lease.promote = Some(true);
+                config.lease.advertise_url = Some(format!("http://{}:20202", machine_id));
+            }
+            "static" => {
+                info!("Production config already uses static lease - adapting for local");
+                config.lease.advertise_url = Some(format!("http://{}:20202", machine_id));
+            }
+            other => {
+                warn!("Unknown lease type '{}' in production config, using static", other);
+                config.lease.lease_type = "static".to_string();
+                config.lease.candidate = Some(true);
+                config.lease.promote = Some(true);
+                config.lease.advertise_url = Some(format!("http://{}:20202", machine_id));
+            }
         }
         
-        // Adjust paths to local environment
-        let base_path = PathBuf::from(format!("./minifly-data/{}/litefs/{}", app_name, machine_id));
+        // Validate proxy configuration
+        if let Some(ref mut proxy) = config.proxy {
+            // Ensure proxy uses local address
+            if !proxy.addr.contains("localhost") && !proxy.addr.starts_with(':') {
+                warn!("Adapting proxy address from {} to :20202", proxy.addr);
+                proxy.addr = ":20202".to_string();
+            }
+            
+            // Validate target exists
+            if proxy.target.is_empty() {
+                bail!("Production config has empty proxy target");
+            }
+            
+            info!("Using proxy configuration: {} -> {}", proxy.addr, proxy.target);
+        }
+        
+        // Adjust paths to local environment with better structure
+        let base_path = std::env::var("MINIFLY_DATA_DIR")
+            .map(PathBuf::from)
+            .unwrap_or_else(|_| PathBuf::from("./minifly-data"))
+            .join(app_name)
+            .join("litefs")
+            .join(machine_id);
+        
         config.fuse.dir = base_path.join("mount");
         config.data.dir = base_path.join("data");
+        
+        // Ensure directories will be created
+        if let Err(e) = std::fs::create_dir_all(&config.fuse.dir) {
+            warn!("Failed to create FUSE dir: {}", e);
+        }
+        if let Err(e) = std::fs::create_dir_all(&config.data.dir) {
+            warn!("Failed to create data dir: {}", e);
+        }
         
         // Enable debug mode for local development
         config.fuse.debug = true;
         config.fuse.allow_other = true;
         
-        // Update log level
-        if let Some(ref mut log) = config.log {
-            log.level = "debug".to_string();
+        // Update log configuration for local development
+        match &mut config.log {
+            Some(log) => {
+                log.level = "debug".to_string();
+                log.format = "text".to_string(); // Better for local development
+            }
+            None => {
+                config.log = Some(LogConfig {
+                    level: "debug".to_string(),
+                    format: "text".to_string(),
+                });
+            }
         }
         
         // Set static configuration for local primary
@@ -278,6 +334,10 @@ impl LiteFSConfig {
         
         // Clear consul config as it's not used locally
         config.consul = None;
+        
+        info!("Successfully adapted production LiteFS config for local development");
+        info!("Mount dir: {:?}", config.fuse.dir);
+        info!("Data dir: {:?}", config.data.dir);
         
         Ok(config)
     }

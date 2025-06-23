@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block title %}Welcome{% endblock %}
+
+{% block content %}
+<div class="hero">
+    <h1>Multi-Region Todo App</h1>
+    <p>A demonstration of Minifly's multi-tenant capabilities with per-user apps and databases</p>
+    
+    {% if let Some(user) = user %}
+        <div class="hero-actions">
+            <a href="/dashboard" class="btn btn-primary">Go to Dashboard</a>
+            <form action="/logout" method="post" style="display: inline;">
+                <button type="submit" class="btn btn-secondary">Logout</button>
+            </form>
+        </div>
+        <p class="welcome-message">Welcome back, {{ user.email }}!</p>
+    {% else %}
+        <div class="hero-actions">
+            <a href="/signup" class="btn btn-primary">Sign Up</a>
+            <a href="/login" class="btn btn-secondary">Login</a>
+        </div>
+    {% endif %}
+</div>
+
+<div class="features">
+    <h2>Features</h2>
+    <div class="feature-grid">
+        <div class="feature">
+            <h3>🔐 Secure Authentication</h3>
+            <p>Email and password authentication with secure session management</p>
+        </div>
+        <div class="feature">
+            <h3>🌍 Multi-Region Deployment</h3>
+            <p>Each user gets their own app and database in their selected region</p>
+        </div>
+        <div class="feature">
+            <h3>📝 Todo Management</h3>
+            <p>Create, update, and delete todos with a clean interface</p>
+        </div>
+        <div class="feature">
+            <h3>🖼️ Image Storage</h3>
+            <p>Attach images to your todos with secure storage</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

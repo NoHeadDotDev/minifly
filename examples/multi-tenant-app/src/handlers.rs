@@ -1,5 +1,5 @@
 use askama::Template;
-use askama_axum::IntoResponse;
+use axum::response::IntoResponse;
 use axum::{
     extract::{Extension, Path, State},
     http::StatusCode,
@@ -23,12 +23,36 @@ struct IndexTemplate {
     tenants: Vec<String>,
 }
 
+impl IntoResponse for IndexTemplate {
+    fn into_response(self) -> Response {
+        match self.render() {
+            Ok(html) => Html(html).into_response(),
+            Err(err) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Template error: {}", err),
+            ).into_response(),
+        }
+    }
+}
+
 #[derive(Template)]
 #[template(path = "tenant.html")]
 struct TenantTemplate {
     tenant_name: String,
     items: Vec<Item>,
     item_count: i32,
+}
+
+impl IntoResponse for TenantTemplate {
+    fn into_response(self) -> Response {
+        match self.render() {
+            Ok(html) => Html(html).into_response(),
+            Err(err) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Template error: {}", err),
+            ).into_response(),
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]

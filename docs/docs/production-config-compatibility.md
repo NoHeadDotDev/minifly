@@ -27,7 +27,7 @@ AWS_ENDPOINT_URL_S3=http://localhost:9000
 
 ### 🔐 Secrets Management
 
-Manage application secrets without committing them to git:
+Manage application secrets without committing them to git. Secrets are automatically injected as environment variables during container startup:
 
 ```bash
 # Set secrets for your app
@@ -35,7 +35,7 @@ minifly secrets set DATABASE_URL=postgres://localhost/myapp
 minifly secrets set SECRET_KEY=your-secret-key
 minifly secrets set API_TOKEN=sk-1234567890
 
-# List current secrets (values are hidden)
+# List current secrets (values are hidden for security)
 minifly secrets list
 
 # Remove secrets
@@ -44,23 +44,33 @@ minifly secrets remove API_TOKEN
 
 #### Secrets Files
 
-Secrets are stored in `.fly.secrets` files:
+Secrets are stored in `.fly.secrets` files with hierarchical loading:
 
 ```bash
 # Default secrets for all apps
 .fly.secrets
 
-# App-specific secrets (takes precedence)
+# App-specific secrets (takes precedence over default)
 .fly.secrets.<app-name>
 ```
 
-File format:
+**File format with enhanced features:**
 ```bash
 # Comments start with #
 DATABASE_URL=postgres://localhost/myapp
-SECRET_KEY=your-secret-key-here
-API_TOKEN=sk-1234567890
+SECRET_KEY="values with spaces need quotes"
+API_TOKEN='single quotes also work'
+EMPTY_VALUE=
+
+# App-specific secrets override defaults
+SESSION_SECRET=app-specific-override
 ```
+
+**Automatic Integration:**
+- Secrets are automatically loaded when containers start
+- Environment variables are injected alongside Fly.io variables
+- No manual export or sourcing required
+- Gitignored by default for security
 
 ### 📁 Volume Mapping
 
@@ -82,29 +92,61 @@ All volume operations work exactly like in production!
 
 ### 🗄️ LiteFS Configuration Compatibility
 
-Production `litefs.yml` files are automatically adapted for local development:
+Production `litefs.yml` files are automatically detected and adapted for local development with enhanced validation and error handling:
 
 **Production litefs.yml:**
 ```yaml
+fuse:
+  dir: "/litefs"
+data:
+  dir: "/var/lib/litefs"
+proxy:
+  addr: ":20202"
+  target: "localhost:8080"
+  db: "db"
 lease:
   type: "consul"
   advertise-url: "http://${HOSTNAME}.vm.${FLY_APP_NAME}.internal:20202"
   candidate: ${FLY_LITEFS_PRIMARY}
-
 consul:
   url: "http://${FLY_CONSUL_URL}"
   key: "litefs/${FLY_APP_NAME}/primary"
 ```
 
-**Automatically becomes:**
+**Automatically adapted for local development:**
 ```yaml
+fuse:
+  dir: "./minifly-data/myapp/machine-123/mount"
+  debug: true           # Enabled for development
+  allow_other: true     # Required for local access
+data:
+  dir: "./minifly-data/myapp/machine-123/data"
+  compress: true
+proxy:
+  addr: ":20202"        # Validated and preserved
+  target: "localhost:8080"
+  db: "db"
 lease:
-  type: "static"  # Consul → Static for local dev
-  advertise-url: "http://machine-id:20202"
+  type: "static"        # Consul → Static conversion
+  advertise-url: "http://machine-123:20202"
   candidate: true
-
-# Consul config removed for local development
+  promote: true
+log:
+  level: "debug"        # Enhanced for development
+  format: "text"        # Better for local logs
+static:
+  primary: true         # Local primary setup
+  hostname: "machine-123"
+  advertise-url: "http://machine-123:20202"
+# consul: removed for local development
 ```
+
+**Enhanced Features:**
+- **Automatic Detection**: Looks for `litefs.yml`, `litefs.yaml` in current directory
+- **Robust Validation**: Validates proxy targets, lease types, and path configurations
+- **Error Recovery**: Falls back to default config if adaptation fails
+- **Path Management**: Creates local directories automatically
+- **Debug Integration**: Enhanced logging for troubleshooting
 
 ### 🐳 Dockerfile Compatibility
 
