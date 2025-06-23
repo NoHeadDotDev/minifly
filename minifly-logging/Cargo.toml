@@ -5,6 +5,11 @@ edition.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+description = "Structured logging for Minifly - Local Fly.io development simulator"
+keywords = ["fly", "flyio", "development", "logging", "tracing"]
+categories = ["development-tools", "simulation"]
 
 [dependencies]
 tracing.workspace = true

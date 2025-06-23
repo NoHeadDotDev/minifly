@@ -4,6 +4,12 @@ version.workspace = true
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+description = "Network and DNS management for Minifly - Local Fly.io development simulator"
+keywords = ["fly", "flyio", "development", "network", "dns"]
+categories = ["development-tools", "simulation", "network-programming"]
 
 [dependencies]
 minifly-core = { path = "../minifly-core" }

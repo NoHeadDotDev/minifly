@@ -4,6 +4,12 @@ version.workspace = true
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+description = "Core types and models for Minifly - Local Fly.io development simulator"
+keywords = ["fly", "flyio", "development", "types", "models"]
+categories = ["development-tools", "simulation"]
 
 [dependencies]
 serde = { workspace = true }
