@@ -7,17 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.3] - 2024-12-29
+
 ### Enhanced
 - **Production Config Compatibility**: Comprehensive enhancements to production config support
 - **Secrets Management**: Enhanced automatic injection of secrets as environment variables during container startup
 - **LiteFS Production Adaptation**: Improved production `litefs.yml` config adaptation with robust validation and error handling
 - **Service Discovery**: Automatic DNS registration/unregistration for .internal domain resolution
 - **Docker Integration**: Seamless secrets loading integration with container creation process
+- **Examples**: Added comprehensive production-config example with demo scripts
 
 ### Improved
 - **LiteFS Config Validation**: Added validation for proxy targets, lease types, and configuration paths
 - **Error Recovery**: Enhanced fallback mechanisms when production config adaptation fails
 - **Development Experience**: Better logging and debug integration for troubleshooting production config issues
+- **Documentation**: Updated production config compatibility documentation with new features
+
+### Added
+- **Secrets CLI Integration**: Full implementation of `minifly secrets set/list/remove` commands
+- **Docker Secrets Loading**: Automatic loading of `.fly.secrets` files during container creation
+- **LiteFS Production Config**: Enhanced `from_production_config()` method with robust adaptation
+- **DNS Integration**: Automatic machine registration/unregistration with DNS resolver
+- **Test Scripts**: Interactive demo and test scripts for production config features
 
 ## [0.1.2] - 2024-06-23
 
