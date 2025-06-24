@@ -26,7 +26,7 @@ use std::time::Duration;
 /// // Start development mode in specific project directory
 /// dev::handle("./my-app", 4280).await?;
 /// ```
-pub async fn handle(path: &str, port: u16) -> Result<()> {
+pub async fn handle(path: &str, port: u16, config_path: Option<String>) -> Result<()> {
     println!("{}", "🔧 Starting Minifly Development Mode".bold().cyan());
     println!("   Project: {}", path.yellow());
     println!("   Port: {}", port.to_string().yellow());
@@ -38,10 +38,27 @@ pub async fn handle(path: &str, port: u16) -> Result<()> {
         return Err(anyhow::anyhow!("Project directory does not exist: {}", path));
     }
     
-    // Check for fly.toml
-    let fly_toml_path = project_path.join("fly.toml");
+    // Check for fly.toml or fly.dev.toml in dev mode
+    let fly_toml_path = if let Some(config) = &config_path {
+        let config_path = std::path::PathBuf::from(config);
+        if config_path.exists() {
+            println!("{}", format!("📦 Using {} for development", config).cyan());
+            config_path
+        } else {
+            return Err(anyhow::anyhow!("Specified config file does not exist: {}", config));
+        }
+    } else {
+        let dev_path = project_path.join("fly.dev.toml");
+        if dev_path.exists() {
+            println!("{}", "📦 Using fly.dev.toml for development".cyan());
+            dev_path
+        } else {
+            project_path.join("fly.toml")
+        }
+    };
+    
     if !fly_toml_path.exists() {
-        println!("{}", "⚠️  No fly.toml found in project directory".yellow());
+        println!("{}", "⚠️  No fly.toml or fly.dev.toml found in project directory".yellow());
         println!("   Run {} to create one", "minifly init".cyan());
         println!();
     }
@@ -51,7 +68,7 @@ pub async fn handle(path: &str, port: u16) -> Result<()> {
         println!("{}", "🚀 Starting Minifly platform...".cyan());
         
         // Start platform in development mode
-        crate::commands::serve::handle(true, port, true).await?;
+        crate::commands::serve::handle(true, port, true, config_path.clone()).await?;
         
         // Give it a moment to fully start
         tokio::time::sleep(Duration::from_secs(2)).await;
@@ -147,7 +164,16 @@ async fn setup_file_watcher(path: &str, port: u16) -> Result<()> {
 /// * `path` - Project directory path
 /// * `port` - API server port
 async fn redeploy_project(path: &str, port: u16) -> Result<()> {
-    let fly_toml_path = Path::new(path).join("fly.toml");
+    // In dev mode, prefer fly.dev.toml
+    let project_path = Path::new(path);
+    let fly_toml_path = {
+        let dev_path = project_path.join("fly.dev.toml");
+        if dev_path.exists() {
+            dev_path
+        } else {
+            project_path.join("fly.toml")
+        }
+    };
     
     if fly_toml_path.exists() {
         // Use our deploy command
@@ -155,6 +181,9 @@ async fn redeploy_project(path: &str, port: u16) -> Result<()> {
             api_url: format!("http://localhost:{}", port),
             token: None,
         })?;
+        
+        // Set FLY_ENV to dev for the deployment
+        std::env::set_var("FLY_ENV", "dev");
         
         crate::commands::deploy::handle(&client, Some(fly_toml_path.to_string_lossy().to_string()), None, false).await?;
     }

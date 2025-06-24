@@ -13,9 +13,16 @@ use colored::*;
 use std::process::{Command, Stdio};
 use std::time::Duration;
 use tokio::time::sleep;
+use tokio::sync::Mutex;
+use std::sync::Arc;
 use tracing::{info, warn, error};
 use crate::client::ApiClient;
 use crate::commands::dependencies;
+
+// Global deployment mutex to prevent concurrent deployments
+lazy_static::lazy_static! {
+    static ref DEPLOYMENT_MUTEX: Arc<Mutex<()>> = Arc::new(Mutex::new(()));
+}
 
 /// Handle the serve command to start the Minifly platform with dependency checks
 /// 
@@ -41,7 +48,7 @@ use crate::commands::dependencies;
 /// // Start with auto-deployment in a project directory
 /// // cd examples/basic-app && minifly serve --dev
 /// ```
-pub async fn handle(daemon: bool, port: u16, dev: bool) -> Result<()> {
+pub async fn handle(daemon: bool, port: u16, dev: bool, config_path: Option<String>) -> Result<()> {
     println!("{}", "🚀 Starting Minifly Platform".bold().blue());
     
     if dev {
@@ -111,8 +118,11 @@ pub async fn handle(daemon: bool, port: u16, dev: bool) -> Result<()> {
         println!("   LiteFS: {}", "Ready".green());
         
         // Check if we're in a project directory and auto-deploy
-        if let Some(project_info) = detect_project_config().await? {
+        if let Some(project_info) = detect_project_config(dev, config_path).await? {
             println!("\n{}", "📦 Project detected, auto-deploying...".cyan().bold());
+            
+            // Acquire deployment lock to prevent concurrent deployments
+            let _lock = DEPLOYMENT_MUTEX.lock().await;
             
             match auto_deploy_current_project(port, &project_info, dev).await {
                 Ok(app_url) => {
@@ -623,15 +633,31 @@ enum ProjectType {
 
 /// Detect if current directory contains a deployable project
 /// 
+/// # Arguments
+/// * `dev` - Whether we're in development mode (prefers fly.dev.toml)
+/// 
 /// # Returns
 /// * `Ok(Some(ProjectInfo))` - Project detected and deployable
 /// * `Ok(None)` - No project detected
 /// * `Err(...)` - Error during detection
-async fn detect_project_config() -> Result<Option<ProjectInfo>> {
+async fn detect_project_config(dev: bool, config_path: Option<String>) -> Result<Option<ProjectInfo>> {
     let current_dir = std::env::current_dir()
         .context("Failed to get current directory")?;
     
-    let fly_toml_path = current_dir.join("fly.toml");
+    // If config path is specified, use it
+    let fly_toml_path = if let Some(config) = config_path {
+        std::path::PathBuf::from(config)
+    } else if dev {
+        // In dev mode, prefer fly.dev.toml
+        let dev_path = current_dir.join("fly.dev.toml");
+        if dev_path.exists() {
+            dev_path
+        } else {
+            current_dir.join("fly.toml")
+        }
+    } else {
+        current_dir.join("fly.toml")
+    };
     
     // Check if fly.toml exists
     if !fly_toml_path.exists() {
@@ -774,8 +800,14 @@ async fn get_deployed_app_url(api_client: &ApiClient, app_name: &str) -> Result<
 /// # Returns
 /// * `Ok(String)` - URL where the app is accessible
 /// * `Err(...)` - Deployment failed
-async fn auto_deploy_current_project(port: u16, project_info: &ProjectInfo, dev: bool) -> Result<String> {
-    println!("   📁 Project: {} ({})", project_info.app_name.green(), format!("{:?}", project_info.project_type).dimmed());
+async fn auto_deploy_current_project(port: u16, project_info: &ProjectInfo, _dev: bool) -> Result<String> {
+    let config_file = project_info.fly_toml_path.file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("fly.toml");
+    println!("   📁 Project: {} ({}) [{}]", 
+        project_info.app_name.green(), 
+        format!("{:?}", project_info.project_type).dimmed(),
+        config_file.yellow());
     
     // Create API client
     let config = crate::config::Config {
@@ -838,10 +870,15 @@ async fn setup_project_file_watcher(project_info: &ProjectInfo, port: u16) -> Re
                             if should_trigger_redeploy(&path) {
                                 println!("\n{}", "🔄 File change detected, redeploying...".yellow());
                                 
-                                if let Err(e) = redeploy_project(&project_info_clone, port).await {
-                                    eprintln!("{}", format!("❌ Redeploy failed: {}", e).red());
+                                // Acquire deployment lock to prevent concurrent deployments
+                                if let Ok(_lock) = DEPLOYMENT_MUTEX.try_lock() {
+                                    if let Err(e) = redeploy_project(&project_info_clone, port).await {
+                                        eprintln!("{}", format!("❌ Redeploy failed: {}", e).red());
+                                    } else {
+                                        println!("{}", "✅ Redeploy completed".green());
+                                    }
                                 } else {
-                                    println!("{}", "✅ Redeploy completed".green());
+                                    println!("{}", "⏳ Another deployment is in progress, skipping...".yellow());
                                 }
                                 
                                 println!("{}", "👀 Watching for changes...".dimmed());

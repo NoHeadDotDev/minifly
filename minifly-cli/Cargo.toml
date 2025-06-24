@@ -54,6 +54,9 @@ chrono = { workspace = true }
 # UUID generation
 uuid = { workspace = true }
 
+# Concurrency utilities
+lazy_static = "1.5"
+
 [dev-dependencies]
 # Testing
 tokio-test = { workspace = true }

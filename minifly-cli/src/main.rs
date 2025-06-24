@@ -38,6 +38,9 @@ enum Commands {
         
         #[arg(long, help = "Enable development mode with auto-reload")]
         dev: bool,
+        
+        #[arg(short, long, help = "Path to fly.toml configuration file for auto-deployment", value_name = "FILE")]
+        config: Option<String>,
     },
     
     /// Development mode with auto-reload and log streaming
@@ -47,6 +50,9 @@ enum Commands {
         
         #[arg(short, long, help = "Port for API server", default_value = "4280")]
         port: u16,
+        
+        #[arg(short, long, help = "Path to fly.toml configuration file", value_name = "FILE")]
+        config: Option<String>,
     },
     
     /// Stop the Minifly platform
@@ -227,11 +233,11 @@ async fn main() -> Result<()> {
         Commands::Init => {
             init::handle(&config).await?;
         }
-        Commands::Serve { daemon, port, dev } => {
-            serve::handle(daemon, port, dev).await?;
+        Commands::Serve { daemon, port, dev, config } => {
+            serve::handle(daemon, port, dev, config).await?;
         }
-        Commands::Dev { path, port } => {
-            dev::handle(&path, port).await?;
+        Commands::Dev { path, port, config } => {
+            dev::handle(&path, port, config).await?;
         }
         Commands::Stop { force } => {
             stop::handle(force).await?;
