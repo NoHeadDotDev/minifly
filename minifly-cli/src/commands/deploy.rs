@@ -95,7 +95,12 @@ struct PortToml {
 /// # Ok::<(), anyhow::Error>(())
 /// # });
 /// ```
-pub async fn handle(client: &ApiClient, path: Option<String>, watch: bool) -> Result<()> {
+pub async fn handle(client: &ApiClient, path: Option<String>, litefs_config: Option<String>, watch: bool) -> Result<()> {
+    // Set litefs config path in environment if provided
+    if let Some(litefs_path) = &litefs_config {
+        std::env::set_var("LITEFS_CONFIG_PATH", litefs_path);
+    }
+    
     // Do the actual deployment
     let _url = deploy_without_watch(client, path, true).await?;
     
@@ -119,7 +124,29 @@ pub async fn handle_quiet(client: &ApiClient, path: Option<String>) -> Result<St
 
 /// Deploy without watch mode (internal function to avoid recursion)
 async fn deploy_without_watch(client: &ApiClient, path: Option<String>, show_output: bool) -> Result<String> {
-    let fly_toml_path = path.unwrap_or_else(|| "fly.toml".to_string());
+    // Determine which fly.toml to use
+    let fly_toml_path = if let Some(explicit_path) = path {
+        // Use explicitly specified path
+        explicit_path
+    } else {
+        // Check for environment-specific config files
+        let env = std::env::var("FLY_ENV").or_else(|_| std::env::var("MINIFLY_ENV")).ok();
+        
+        let config_path = if let Some(env_name) = env {
+            // Try environment-specific config first
+            let env_specific_path = format!("fly.{}.toml", env_name.to_lowercase());
+            if Path::new(&env_specific_path).exists() {
+                println!("📝 Using environment-specific config: {}", env_specific_path.yellow());
+                env_specific_path
+            } else {
+                "fly.toml".to_string()
+            }
+        } else {
+            "fly.toml".to_string()
+        };
+        
+        config_path
+    };
     
     // Get the absolute path before changing directories
     let abs_fly_toml_path = std::path::Path::new(&fly_toml_path).canonicalize()
@@ -165,11 +192,40 @@ async fn deploy_without_watch(client: &ApiClient, path: Option<String>, show_out
     let image = build_or_get_image(&config).await?;
     
     // 3. Check for LiteFS configuration
-    let litefs_config = if Path::new("litefs.yml").exists() {
-        println!("📦 Found litefs.yml, configuring LiteFS...");
-        Some(fs::read_to_string("litefs.yml")?)
-    } else {
-        None
+    let litefs_config = {
+        // Check for environment-specific litefs config
+        let env = std::env::var("FLY_ENV").or_else(|_| std::env::var("MINIFLY_ENV")).ok();
+        let litefs_path = std::env::var("LITEFS_CONFIG_PATH").ok();
+        
+        let config_path = if let Some(explicit_path) = litefs_path {
+            // Use explicitly specified path
+            if Path::new(&explicit_path).exists() {
+                println!("📦 Using LiteFS config from LITEFS_CONFIG_PATH: {}", explicit_path.yellow());
+                Some(explicit_path)
+            } else {
+                println!("⚠️  LITEFS_CONFIG_PATH specified but file not found: {}", explicit_path);
+                None
+            }
+        } else if let Some(env_name) = env {
+            // Try environment-specific config
+            let env_specific_path = format!("litefs.{}.yml", env_name.to_lowercase());
+            if Path::new(&env_specific_path).exists() {
+                println!("📦 Using environment-specific LiteFS config: {}", env_specific_path.yellow());
+                Some(env_specific_path)
+            } else if Path::new("litefs.yml").exists() {
+                println!("📦 Found litefs.yml, configuring LiteFS...");
+                Some("litefs.yml".to_string())
+            } else {
+                None
+            }
+        } else if Path::new("litefs.yml").exists() {
+            println!("📦 Found litefs.yml, configuring LiteFS...");
+            Some("litefs.yml".to_string())
+        } else {
+            None
+        };
+        
+        config_path.and_then(|path| fs::read_to_string(path).ok())
     };
     
     // 4. Load secrets for the app

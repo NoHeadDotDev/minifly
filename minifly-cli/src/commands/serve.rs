@@ -884,7 +884,7 @@ async fn redeploy_project(project_info: &ProjectInfo, port: u16) -> Result<()> {
     let api_client = ApiClient::new(&config)?;
     
     let fly_toml_path = project_info.fly_toml_path.to_string_lossy().to_string();
-    crate::commands::deploy::handle(&api_client, Some(fly_toml_path), false).await?;
+    crate::commands::deploy::handle(&api_client, Some(fly_toml_path), None, false).await?;
     
     Ok(())
 }

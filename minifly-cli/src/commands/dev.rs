@@ -156,7 +156,7 @@ async fn redeploy_project(path: &str, port: u16) -> Result<()> {
             token: None,
         })?;
         
-        crate::commands::deploy::handle(&client, Some(fly_toml_path.to_string_lossy().to_string()), false).await?;
+        crate::commands::deploy::handle(&client, Some(fly_toml_path.to_string_lossy().to_string()), None, false).await?;
     }
     
     Ok(())

@@ -1,0 +1,32 @@
+# Production LiteFS configuration
+fuse:
+  dir: "/litefs"
+  
+data:
+  dir: "/var/lib/litefs"
+  compress: true
+  retention: "7d"
+  retention_monitor_interval: "1h"
+
+proxy:
+  addr: ":20202"
+  target: "localhost:8080"
+  db: "app.db"
+  passthrough:
+    - "*.ico"
+    - "*.png"
+    - "*.jpg"
+
+lease:
+  type: "consul"
+  advertise_url: "http://${FLY_MACHINE_ID}.vm.${FLY_APP_NAME}.internal:20202"
+  
+consul:
+  url: "${FLY_CONSUL_URL}"
+  key: "litefs/${FLY_APP_NAME}"
+  ttl: "10s"
+  lock_ttl: "15s"
+
+log:
+  level: "info"
+  format: "json"

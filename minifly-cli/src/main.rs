@@ -65,8 +65,11 @@ enum Commands {
     
     /// Deploy an application
     Deploy {
-        #[arg(help = "Path to fly.toml")]
-        path: Option<String>,
+        #[arg(short, long, help = "Path to fly.toml configuration file", value_name = "FILE")]
+        config: Option<String>,
+        
+        #[arg(short = 'l', long, help = "Path to litefs.yml configuration file", value_name = "FILE")]
+        litefs_config: Option<String>,
         
         #[arg(short, long, help = "Watch for changes and auto-redeploy")]
         watch: bool,
@@ -261,8 +264,8 @@ async fn main() -> Result<()> {
                 machines::delete(&client, &machine_id, force).await?;
             }
         },
-        Commands::Deploy { path, watch } => {
-            deploy::handle(&client, path, watch).await?;
+        Commands::Deploy { config, litefs_config, watch } => {
+            deploy::handle(&client, config, litefs_config, watch).await?;
         }
         Commands::Logs { machine_id, follow, region } => {
             logs::handle(&client, &machine_id, follow, region).await?;

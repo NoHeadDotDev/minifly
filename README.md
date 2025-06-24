@@ -112,6 +112,10 @@ minifly serve
 # Deploy from fly.toml
 minifly deploy
 
+# Deploy with specific config files (NEW!)
+minifly deploy --config fly.production.toml
+minifly deploy --config fly.staging.toml --litefs-config litefs.prod.yml
+
 # Create apps and machines manually
 minifly apps create my-app
 minifly machines create --app my-app --image nginx:latest
@@ -215,6 +219,40 @@ minifly deploy
 
 ## Configuration
 
+### Multiple Configuration Files (NEW!)
+
+Minifly now supports multiple configuration files for different environments, just like Fly.io:
+
+#### Environment-specific fly.toml
+
+```bash
+# Use explicit config file
+minifly deploy --config fly.production.toml
+minifly deploy --config fly.staging.toml
+
+# Or use environment variables for automatic discovery
+FLY_ENV=dev minifly deploy      # Uses fly.dev.toml if it exists
+MINIFLY_ENV=staging minifly deploy  # Uses fly.staging.toml if it exists
+```
+
+#### Environment-specific litefs.yml
+
+```bash
+# Use explicit config file
+minifly deploy --litefs-config litefs.production.yml
+
+# Or use environment variables
+LITEFS_CONFIG_PATH=litefs.prod.yml minifly deploy
+FLY_ENV=dev minifly deploy  # Uses litefs.dev.yml if it exists
+```
+
+#### Configuration Precedence
+
+1. Explicit `--config` or `--litefs-config` flags (highest priority)
+2. `LITEFS_CONFIG_PATH` environment variable (for LiteFS)
+3. Environment-specific files based on `FLY_ENV` or `MINIFLY_ENV`
+4. Default files (`fly.toml` and `litefs.yml`)
+
 ### Environment Variables
 
 - `MINIFLY_API_PORT`: API server port (default: 4280)
@@ -222,6 +260,8 @@ minifly deploy
 - `DOCKER_HOST`: Docker socket path
 - `MINIFLY_NETWORK_PREFIX`: IPv6 network prefix (default: fdaa:0:)
 - `MINIFLY_DATA_DIR`: Data directory for LiteFS and volumes (default: ./data)
+- `FLY_ENV` or `MINIFLY_ENV`: Environment name for config file discovery
+- `LITEFS_CONFIG_PATH`: Path to LiteFS configuration file
 
 ### CLI Configuration
 

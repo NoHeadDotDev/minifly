@@ -1,0 +1,21 @@
+# Default LiteFS configuration
+fuse:
+  dir: "/litefs"
+
+data:
+  dir: "/var/lib/litefs"
+  compress: true
+  retention: "24h"
+
+proxy:
+  addr: ":20202"
+  target: "localhost:8080"
+  db: "app.db"
+
+lease:
+  type: "static"
+  candidate: true
+  promote: true
+
+log:
+  level: "debug"
