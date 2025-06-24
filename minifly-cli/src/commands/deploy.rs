@@ -3,12 +3,13 @@ use colored::*;
 use std::fs;
 use std::path::Path;
 use std::process::Command;
-use serde::Deserialize;
+use serde::{Deserialize, Deserializer};
 use crate::client::ApiClient;
 use crate::commands::secrets;
 use minifly_core::models::{
     CreateMachineRequest, MachineConfig, GuestConfig, ServiceConfig, 
     PortConfig, MountConfig, CreateAppRequest, RestartConfig,
+    AutostartConfig, AutostopConfig, TlsOptions,
 };
 use uuid::Uuid;
 
@@ -18,8 +19,15 @@ struct FlyToml {
     primary_region: Option<String>,
     build: Option<BuildConfig>,
     env: Option<std::collections::HashMap<String, String>>,
-    mounts: Option<MountToml>,
+    #[serde(deserialize_with = "deserialize_mounts", default)]
+    mounts: Option<Vec<MountToml>>,
     services: Option<Vec<ServiceToml>>,
+    #[serde(rename = "http_service")]
+    http_service: Option<HttpServiceToml>,
+    #[serde(rename = "vm", default)]
+    vm: Option<Vec<VmToml>>,
+    statics: Option<Vec<StaticsToml>>,
+    deploy: Option<DeployToml>,
     
     // Additional fields for validation
     #[serde(default)]
@@ -28,6 +36,72 @@ struct FlyToml {
     processes: Option<toml::Value>,
     #[serde(default)]
     metrics: Option<toml::Value>,
+    #[serde(default)]
+    swap_size_mb: Option<u32>,
+}
+
+// Custom deserializer for mounts that handles both single object and array
+fn deserialize_mounts<'de, D>(deserializer: D) -> Result<Option<Vec<MountToml>>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    use serde::de::{self, Visitor};
+    use std::fmt;
+    
+    struct MountsVisitor;
+    
+    impl<'de> Visitor<'de> for MountsVisitor {
+        type Value = Option<Vec<MountToml>>;
+        
+        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+            formatter.write_str("a mount object or array of mount objects")
+        }
+        
+        fn visit_none<E>(self) -> Result<Self::Value, E>
+        where
+            E: de::Error,
+        {
+            Ok(None)
+        }
+        
+        fn visit_some<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            deserializer.deserialize_any(MountsInnerVisitor)
+        }
+    }
+    
+    struct MountsInnerVisitor;
+    
+    impl<'de> Visitor<'de> for MountsInnerVisitor {
+        type Value = Option<Vec<MountToml>>;
+        
+        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+            formatter.write_str("a mount object or array of mount objects")
+        }
+        
+        fn visit_map<A>(self, map: A) -> Result<Self::Value, A::Error>
+        where
+            A: de::MapAccess<'de>,
+        {
+            let mount = MountToml::deserialize(de::value::MapAccessDeserializer::new(map))?;
+            Ok(Some(vec![mount]))
+        }
+        
+        fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+        where
+            A: de::SeqAccess<'de>,
+        {
+            let mut mounts = Vec::new();
+            while let Some(mount) = seq.next_element()? {
+                mounts.push(mount);
+            }
+            Ok(Some(mounts))
+        }
+    }
+    
+    deserializer.deserialize_option(MountsVisitor)
 }
 
 #[derive(Debug, Deserialize)]
@@ -58,6 +132,69 @@ struct ServiceToml {
 struct PortToml {
     port: u16,
     handlers: Vec<String>,
+    #[serde(default)]
+    force_https: Option<bool>,
+    #[serde(default)]
+    tls_options: Option<TlsOptionsToml>,
+}
+
+#[derive(Debug, Deserialize)]
+struct TlsOptionsToml {
+    #[serde(default)]
+    alpn: Option<Vec<String>>,
+    #[serde(default)]
+    versions: Option<Vec<String>>,
+}
+
+#[derive(Debug, Deserialize)]
+struct HttpServiceToml {
+    internal_port: u16,
+    #[serde(default)]
+    force_https: Option<bool>,
+    #[serde(default)]
+    auto_stop_machines: Option<String>,
+    #[serde(default)]
+    auto_start_machines: Option<bool>,
+    #[serde(default)]
+    min_machines_running: Option<u32>,
+    #[serde(default)]
+    processes: Option<Vec<String>>,
+}
+
+#[derive(Debug, Deserialize)]
+struct VmToml {
+    #[serde(default)]
+    size: Option<String>,
+    #[serde(default)]
+    cpu_kind: Option<String>,
+    #[serde(default)]
+    cpus: Option<u32>,
+    #[serde(default)]
+    memory_mb: Option<u32>,
+    #[serde(default)]
+    memory: Option<String>,
+    #[serde(default)]
+    processes: Option<Vec<String>>,
+}
+
+#[derive(Debug, Deserialize)]
+struct StaticsToml {
+    guest_path: String,
+    url_prefix: String,
+    #[serde(default)]
+    tigris_bucket: Option<String>,
+    #[serde(default)]
+    index_document: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct DeployToml {
+    #[serde(default)]
+    strategy: Option<String>,
+    #[serde(default)]
+    release_command: Option<String>,
+    #[serde(default)]
+    wait_timeout: Option<String>,
 }
 
 /// Handles the deploy command with production config compatibility.
@@ -355,41 +492,118 @@ fn create_machine_config(
         }
     }
     
-    // Convert services
-    let services = config.services.as_ref().map(|services| {
-        services.iter().map(|s| ServiceConfig {
+    // Convert services - handle both [[services]] array and [http_service]
+    let services = if let Some(services) = &config.services {
+        // Traditional [[services]] format
+        Some(services.iter().map(|s| ServiceConfig {
             ports: s.ports.iter().map(|p| PortConfig {
                 port: p.port,
                 handlers: p.handlers.clone(),
-                force_https: Some(false),
-                tls_options: None,
+                force_https: p.force_https.or(Some(false)),
+                tls_options: p.tls_options.as_ref().map(|tls| TlsOptions {
+                    alpn: tls.alpn.clone().unwrap_or_else(|| vec!["h2".to_string(), "http/1.1".to_string()]),
+                    versions: tls.versions.clone().unwrap_or_else(|| vec!["TLSv1.2".to_string(), "TLSv1.3".to_string()]),
+                }),
             }).collect(),
             protocol: s.protocol.clone(),
             internal_port: s.internal_port,
-            autostart: None,
-            autostop: None,
+            autostart: s.auto_start_machines.map(|enabled| AutostartConfig { enabled: Some(enabled) }),
+            autostop: s.auto_stop_machines.map(|enabled| AutostopConfig {
+                enabled: Some(enabled),
+                seconds: None,
+            }),
             force_instance_description: None,
+        }).collect())
+    } else if let Some(http_service) = &config.http_service {
+        // New [http_service] format - convert to services
+        Some(vec![ServiceConfig {
+            ports: vec![
+                PortConfig {
+                    port: 80,
+                    handlers: vec!["http".to_string()],
+                    force_https: http_service.force_https,
+                    tls_options: None,
+                },
+                PortConfig {
+                    port: 443,
+                    handlers: vec!["tls".to_string(), "http".to_string()],
+                    force_https: None,
+                    tls_options: None,
+                },
+            ],
+            protocol: "tcp".to_string(),
+            internal_port: http_service.internal_port,
+            autostart: http_service.auto_start_machines.map(|enabled| AutostartConfig { enabled: Some(enabled) }),
+            autostop: http_service.auto_stop_machines.as_ref().map(|stop| AutostopConfig {
+                enabled: Some(stop != "off"),
+                seconds: None,
+            }),
+            force_instance_description: None,
+        }])
+    } else {
+        None
+    };
+    
+    // Convert mounts
+    let mounts = config.mounts.as_ref().map(|mounts| {
+        mounts.iter().map(|m| MountConfig {
+            volume: m.source.clone(),
+            path: m.destination.clone(),
         }).collect()
     });
     
-    // Convert mounts
-    let mounts = config.mounts.as_ref().map(|m| {
-        vec![MountConfig {
-            volume: m.source.clone(),
-            path: m.destination.clone(),
-        }]
-    });
-    
-    Ok(MachineConfig {
-        image: image.to_string(),
-        guest: GuestConfig {
+    // Extract VM configuration
+    let guest = if let Some(vm_configs) = &config.vm {
+        // Use the first VM config (or could match by process group)
+        let vm = vm_configs.first();
+        if let Some(vm) = vm {
+            let memory_mb = vm.memory_mb.or_else(|| {
+                // Parse memory string like "1gb" or "512mb"
+                vm.memory.as_ref().and_then(|mem| {
+                    let mem_lower = mem.to_lowercase();
+                    if mem_lower.ends_with("gb") {
+                        mem_lower.trim_end_matches("gb").parse::<u32>().ok().map(|gb| gb * 1024)
+                    } else if mem_lower.ends_with("mb") {
+                        mem_lower.trim_end_matches("mb").parse::<u32>().ok()
+                    } else {
+                        None
+                    }
+                })
+            }).unwrap_or(1024);
+            
+            GuestConfig {
+                cpu_kind: vm.cpu_kind.clone().unwrap_or_else(|| "shared".to_string()),
+                cpus: vm.cpus.unwrap_or(1),
+                memory_mb,
+                gpu_kind: None,
+                gpus: None,
+                kernel_args: None,
+            }
+        } else {
+            GuestConfig {
+                cpu_kind: "shared".to_string(),
+                cpus: 1,
+                memory_mb: 1024,
+                gpu_kind: None,
+                gpus: None,
+                kernel_args: None,
+            }
+        }
+    } else {
+        // Default guest config
+        GuestConfig {
             cpu_kind: "shared".to_string(),
             cpus: 1,
-            memory_mb: 512,
+            memory_mb: 1024,
             gpu_kind: None,
             gpus: None,
             kernel_args: None,
-        },
+        }
+    };
+    
+    Ok(MachineConfig {
+        image: image.to_string(),
+        guest,
         env: Some(env),
         services,
         mounts,
