@@ -18,7 +18,7 @@ NC='\033[0m'
 
 # Check if user is logged in to crates.io
 echo -e "${BLUE}Checking crates.io authentication...${NC}"
-if ! cargo login --quiet 2>/dev/null; then
+if [ ! -f ~/.cargo/credentials.toml ] || ! grep -q "token" ~/.cargo/credentials.toml 2>/dev/null; then
     echo -e "${RED}❌ You need to login to crates.io first!${NC}"
     echo
     echo "Steps to login:"
@@ -58,11 +58,11 @@ publish_crate() {
 
 # Confirm before proceeding
 echo -e "${YELLOW}This will publish the following crates to crates.io:${NC}"
-echo "1. minifly-core v0.1.3"
-echo "2. minifly-logging v0.1.3"
-echo "3. minifly-network v0.1.3"
-echo "4. minifly-litefs v0.1.3"
-echo "5. minifly-cli v0.1.3 (the main package)"
+echo "1. minifly-core v0.2.0"
+echo "2. minifly-logging v0.2.0"
+echo "3. minifly-network v0.2.0"
+echo "4. minifly-litefs v0.2.0"
+echo "5. minifly-cli v0.2.0 (the main package)"
 echo
 read -p "Continue? (y/N) " -n 1 -r
 echo
@@ -94,12 +94,12 @@ sleep 10
 publish_crate "minifly-cli" "minifly-cli"
 
 echo
-echo -e "${GREEN}🎉 Successfully published Minifly v0.1.3!${NC}"
+echo -e "${GREEN}🎉 Successfully published Minifly v0.2.0!${NC}"
 echo
 echo "Users can now install with:"
 echo -e "${BLUE}cargo install minifly-cli${NC}"
 echo
-echo "Release notes: https://github.com/NoHeadDotDev/minifly/releases/tag/v0.1.3"
+echo "Release notes: https://github.com/NoHeadDotDev/minifly/releases/tag/v0.2.0"
 echo
 echo "Next steps:"
 echo "1. Create a GitHub release with the changelog"
