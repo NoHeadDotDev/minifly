@@ -12,7 +12,7 @@ keywords = ["fly", "flyio", "development", "network", "dns"]
 categories = ["development-tools", "simulation", "network-programming"]
 
 [dependencies]
-minifly-core = { version = "0.1.2", path = "../minifly-core" }
+minifly-core = { version = "0.2.0", path = "../minifly-core" }
 
 tokio = { workspace = true }
 anyhow = { workspace = true }

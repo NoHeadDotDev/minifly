@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# Minifly v0.1.3 Release Publishing Script
+# Minifly v0.2.0 Release Publishing Script
 # This script publishes all Minifly crates in the correct order
 
 set -e
 
-echo "🚀 Minifly v0.1.3 Release Publishing Script"
+echo "🚀 Minifly v0.2.0 Release Publishing Script"
 echo "==========================================="
 echo
 
@@ -44,7 +44,7 @@ publish_crate() {
     else
         # Check if already published
         if grep -q "already uploaded" /tmp/publish_output.txt; then
-            echo -e "${YELLOW}⚠️  $crate_name v0.1.3 already published, skipping...${NC}"
+            echo -e "${YELLOW}⚠️  $crate_name v0.2.0 already published, skipping...${NC}"
         else
             echo -e "${RED}❌ Failed to publish $crate_name${NC}"
             exit 1
