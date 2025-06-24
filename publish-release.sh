@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# Minifly v0.2.1 Release Publishing Script
+# Minifly v0.2.2 Release Publishing Script
 # This script publishes all Minifly crates in the correct order
 
 set -e
 
-echo "🚀 Minifly v0.2.1 Release Publishing Script"
+echo "🚀 Minifly v0.2.2 Release Publishing Script"
 echo "==========================================="
 echo
 
@@ -44,7 +44,7 @@ publish_crate() {
     else
         # Check if already published
         if grep -q "already uploaded" /tmp/publish_output.txt; then
-            echo -e "${YELLOW}⚠️  $crate_name v0.2.1 already published, skipping...${NC}"
+            echo -e "${YELLOW}⚠️  $crate_name v0.2.2 already published, skipping...${NC}"
         else
             echo -e "${RED}❌ Failed to publish $crate_name${NC}"
             exit 1
@@ -58,11 +58,11 @@ publish_crate() {
 
 # Confirm before proceeding
 echo -e "${YELLOW}This will publish the following crates to crates.io:${NC}"
-echo "1. minifly-core v0.2.1"
-echo "2. minifly-logging v0.2.1"
-echo "3. minifly-network v0.2.1"
-echo "4. minifly-litefs v0.2.1"
-echo "5. minifly-cli v0.2.1 (the main package)"
+echo "1. minifly-core v0.2.2"
+echo "2. minifly-logging v0.2.2"
+echo "3. minifly-network v0.2.2"
+echo "4. minifly-litefs v0.2.2"
+echo "5. minifly-cli v0.2.2 (the main package)"
 echo
 read -p "Continue? (y/N) " -n 1 -r
 echo
@@ -94,12 +94,12 @@ sleep 10
 publish_crate "minifly-cli" "minifly-cli"
 
 echo
-echo -e "${GREEN}🎉 Successfully published Minifly v0.2.1!${NC}"
+echo -e "${GREEN}🎉 Successfully published Minifly v0.2.2!${NC}"
 echo
 echo "Users can now install with:"
 echo -e "${BLUE}cargo install minifly-cli${NC}"
 echo
-echo "Release notes: https://github.com/NoHeadDotDev/minifly/releases/tag/v0.2.1"
+echo "Release notes: https://github.com/NoHeadDotDev/minifly/releases/tag/v0.2.2"
 echo
 echo "Next steps:"
 echo "1. Create a GitHub release with the changelog"

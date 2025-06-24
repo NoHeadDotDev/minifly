@@ -17,8 +17,8 @@ name = "minifly"
 path = "src/main.rs"
 
 [dependencies]
-minifly-core = { version = "0.2.1", path = "../minifly-core" }
-minifly-logging = { version = "0.2.1", path = "../minifly-logging" }
+minifly-core = { version = "0.2.2", path = "../minifly-core" }
+minifly-logging = { version = "0.2.2", path = "../minifly-logging" }
 
 clap = { workspace = true }
 tokio = { workspace = true }

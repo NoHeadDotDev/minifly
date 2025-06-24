@@ -12,7 +12,7 @@ keywords = ["fly", "flyio", "development", "litefs", "sqlite"]
 categories = ["development-tools", "simulation", "database"]
 
 [dependencies]
-minifly-core = { version = "0.2.1", path = "../minifly-core" }
+minifly-core = { version = "0.2.2", path = "../minifly-core" }
 
 tokio = { workspace = true }
 axum = { workspace = true }
